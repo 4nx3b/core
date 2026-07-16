@@ -9,11 +9,10 @@ package moe.rukamori.archivetune.innertube
 
 import okhttp3.Interceptor
 import okhttp3.Response
-import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 
 object NetworkGatekeeper : Interceptor {
-    private val connectionBlocked = AtomicBoolean(true)
+    private val connectionBlocked = AtomicBoolean(false)
 
     val isConnectionBlocked: Boolean
         get() = connectionBlocked.get()
@@ -22,10 +21,5 @@ object NetworkGatekeeper : Interceptor {
         connectionBlocked.set(blocked)
     }
 
-    override fun intercept(chain: Interceptor.Chain): Response {
-        if (connectionBlocked.get()) {
-            throw IOException("Connection Blocked by Gatekeeper")
-        }
-        return chain.proceed(chain.request())
-    }
+    override fun intercept(chain: Interceptor.Chain): Response = chain.proceed(chain.request())
 }
