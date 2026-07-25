@@ -52,7 +52,7 @@ data class YouTubeClient(
             ),
         user =
             Context.User(
-                onBehalfOfUser = if (supportsCookieAuthentication) dataSyncId else null,
+                onBehalfOfUser = if (supportsCookieAuthentication) dataSyncId.delegatedSessionIdOrNull() else null,
             ),
     )
 
@@ -169,6 +169,22 @@ data class YouTubeClient(
                 androidSdkVersion = "32",
                 loginSupported = false,
                 useSignatureTimestamp = false,
+            )
+
+        val ANDROID_VR_1_65_10 =
+            YouTubeClient(
+                clientName = "ANDROID_VR",
+                clientVersion = "1.65.10",
+                clientId = "28",
+                userAgent = "com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip",
+                osName = "Android",
+                osVersion = "12L",
+                deviceMake = "Oculus",
+                deviceModel = "Quest 3",
+                androidSdkVersion = "32",
+                buildId = "SQ3A.220605.009.A1",
+                packageName = "com.google.android.apps.youtube.vr.oculus",
+                friendlyName = "Android VR 1.65",
             )
 
         val ANDROID_VR_1_61_48 =
@@ -366,4 +382,12 @@ data class YouTubeClient(
                 useSignatureTimestamp = false,
             )
     }
+}
+
+private fun String?.delegatedSessionIdOrNull(): String? {
+    val value = this?.trim()?.takeIf(String::isNotBlank) ?: return null
+    val separatorIndex = value.indexOf("||")
+    if (separatorIndex <= 0 || separatorIndex + 2 >= value.length) return null
+
+    return value.substring(0, separatorIndex).trim().takeIf(String::isNotBlank)
 }
