@@ -148,14 +148,17 @@ class InnerTube {
                 deflate(0.8F)
             }
 
+            // Generous budgets so throttled / DPI-shaped networks (e.g. RU) can finish the
+            // TLS + redirect chain instead of aborting mid-handshake and retrying forever.
             install(HttpTimeout) {
-                requestTimeoutMillis = 15000
-                connectTimeoutMillis = 10000
-                socketTimeoutMillis = 15000
+                requestTimeoutMillis = 60000
+                connectTimeoutMillis = 30000
+                socketTimeoutMillis = 60000
             }
 
             engine {
                 config {
+                    retryOnConnectionFailure(true)
                     dns(this@InnerTube.dns)
                     val sel = this@InnerTube.proxySelector
                     if (sel != null) {
