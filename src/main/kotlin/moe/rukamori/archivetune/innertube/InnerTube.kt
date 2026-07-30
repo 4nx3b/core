@@ -122,6 +122,14 @@ class InnerTube {
 
     var useLoginForBrowse: Boolean = false
 
+    /**
+     * When true, region-sensitive browse/search/home requests are forced anonymous
+     * (no cookie, no dataSyncId, no visitorData) so the spoofed `context.client.gl`
+     * is the only region signal YouTube sees. See [YouTube.regionSpooferActive] for
+     * the full rationale.
+     */
+    var regionSpooferActive: Boolean = false
+
     fun currentAuthState(): PlaybackAuthState = authState
 
     fun applyAuthState(value: PlaybackAuthState) {
@@ -286,19 +294,22 @@ class InnerTube {
         continuation: String? = null,
         useAccountContext: Boolean = true,
     ) = withRetry {
+        // When the region spoofer is active, force anonymous search so YouTube
+        // honors `context.client.gl` instead of the user's account region.
+        val effectiveUseAccountContext = useAccountContext && !regionSpooferActive
         httpClient.post("search") {
             ytClient(
                 client = client,
-                setLogin = useAccountContext && useLoginForBrowse,
-                includeVisitorData = useAccountContext,
+                setLogin = effectiveUseAccountContext && useLoginForBrowse,
+                includeVisitorData = effectiveUseAccountContext,
             )
             setBody(
                 SearchBody(
                     context =
                         client.toContext(
                             locale,
-                            if (useAccountContext) visitorData else null,
-                            if (useAccountContext && useLoginForBrowse) dataSyncId else null,
+                            if (effectiveUseAccountContext) visitorData else null,
+                            if (effectiveUseAccountContext && useLoginForBrowse) dataSyncId else null,
                         ),
                     query = query,
                     params = params,
@@ -431,6 +442,24 @@ class InnerTube {
         }
     }
 
+    /**
+     * Set of browseIds that are region-sensitive (their content varies by `gl`).
+     * When the region spoofer is active, browse() for these IDs is forced
+     * anonymous so YouTube honors the spoofed region instead of the user's
+     * account region. Login-required IDs (library, history, liked playlists,
+     * user playlists) are deliberately NOT in this set.
+     */
+    private val REGION_SENSITIVE_BROWSE_IDS =
+        setOf(
+            "FEmusic_home",            // Home feed
+            "FEmusic_charts",          // Charts
+            "FEmusic_trending",        // Trending
+            "FEmusic_moods_and_genres", // Moods & genres hub
+            "FEmusic_new_releases",    // New releases
+            "FEmusic_explore",         // Explore
+            "FEmusic_shelf",           // Generic shelf (used by explore sub-pages)
+        )
+
     suspend fun browse(
         client: YouTubeClient,
         browseId: String? = null,
@@ -438,15 +467,27 @@ class InnerTube {
         continuation: String? = null,
         setLogin: Boolean = false,
     ) = withRetry {
+        // When the region spoofer is active AND this browseId is region-sensitive,
+        // force anonymous (no login, no dataSyncId, no visitorData in body) so
+        // YouTube honors `context.client.gl`. Login-required browseIds (library,
+        // playlists, history) keep their normal login behavior.
+        val spooferAppliesToThisBrowse =
+            regionSpooferActive && browseId in REGION_SENSITIVE_BROWSE_IDS
+        val effectiveSetLogin =
+            if (spooferAppliesToThisBrowse) false else setLogin || useLoginForBrowse
+        val effectiveVisitorData =
+            if (spooferAppliesToThisBrowse) null else visitorData
+        val effectiveDataSyncId =
+            if (spooferAppliesToThisBrowse) null else if (setLogin || useLoginForBrowse) dataSyncId else null
         httpClient.post("browse") {
-            ytClient(client, setLogin = setLogin || useLoginForBrowse)
+            ytClient(client, setLogin = effectiveSetLogin)
             setBody(
                 BrowseBody(
                     context =
                         client.toContext(
                             locale,
-                            visitorData,
-                            if (setLogin || useLoginForBrowse) dataSyncId else null,
+                            effectiveVisitorData,
+                            effectiveDataSyncId,
                         ),
                     browseId = browseId,
                     params = params,

@@ -208,6 +208,26 @@ object YouTube {
             innerTube.useLoginForBrowse = value
         }
 
+    /**
+     * When true, region-sensitive endpoints (home, search, browse for charts/trending/
+     * new-releases/moods/genres/explore) are forced anonymous — no cookie, no
+     * dataSyncId, no visitorData in the request body or X-Goog-Visitor-Id header.
+     *
+     * This is set by InternetSettings when the user picks a non-SYSTEM_DEFAULT
+     * YouTube Music region. Without this flag, a logged-in user's account region
+     * overrides `context.client.gl` and YouTube keeps serving content from the
+     * account's home country — defeating the spoofer. By going anonymous, the
+     * `gl` parameter becomes the sole region signal and YouTube honors it.
+     *
+     * Login-required endpoints (library, playlists, account menu, etc.) are NOT
+     * affected and continue to use the user's session.
+     */
+    var regionSpooferActive: Boolean
+        get() = innerTube.regionSpooferActive
+        set(value) {
+            innerTube.regionSpooferActive = value
+        }
+
     val rotatingProxyClient = RotatingProxyClient()
     private val _ipRotationActiveCount = MutableStateFlow(0)
     val ipRotationActiveCount: StateFlow<Int> = _ipRotationActiveCount.asStateFlow()
