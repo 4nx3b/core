@@ -125,6 +125,18 @@ object YouTube {
     private val _historySyncEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val historySyncEvent: SharedFlow<Unit> = _historySyncEvent.asSharedFlow()
 
+    /**
+     * Emitted whenever [locale] is reassigned. Consumers (e.g. HomeViewModel) collect this
+     * to know when to re-fetch region-sensitive content like the home feed, because the
+     * YouTube Music `gl` parameter (context.client.gl) only takes effect on the *next*
+     * request — already-fetched pages continue to reflect the old region until refreshed.
+     *
+     * This is the single source of truth for "the user changed the YT Music region (or
+     * content country/language)". Direct setters on [locale] go through here.
+     */
+    private val _localeChanges = MutableSharedFlow<YouTubeLocale>(extraBufferCapacity = 1)
+    val localeChanges: SharedFlow<YouTubeLocale> = _localeChanges.asSharedFlow()
+
     fun notifyHistorySynced() {
         _historySyncEvent.tryEmit(Unit)
     }
@@ -140,7 +152,14 @@ object YouTube {
     var locale: YouTubeLocale
         get() = innerTube.locale
         set(value) {
+            val previous = innerTube.locale
             innerTube.locale = value
+            // Only emit when the locale actually changed — avoids spurious home-feed
+            // refreshes when the same value is re-assigned (e.g. during App.kt startup
+            // when the preference is re-applied on every cold start).
+            if (previous != value) {
+                _localeChanges.tryEmit(value)
+            }
         }
     var visitorData: String?
         get() = authState.visitorData

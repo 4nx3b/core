@@ -59,7 +59,12 @@ class InnerTube {
             gl = Locale.getDefault().country,
             hl = Locale.getDefault().toLanguageTag(),
         )
-    private val queueLocale = YouTubeLocale(gl = "US", hl = "en")
+    // NOTE: the /next endpoint previously used a hardcoded US/en locale (queueLocale) for
+    // "stability". This meant the YT Music region spoofer had no effect on radio queues,
+    // "Up Next", and home-screen similar-recommendations — all of which flow through next().
+    // The spoofer (and content country/language settings) now flow through `locale` here
+    // so that next() honors the user's chosen region, matching the behavior of every other
+    // InnerTube endpoint (browse/search/player/getSearchSuggestions/getQueue/...).
 
     @Volatile
     private var authState: PlaybackAuthState = PlaybackAuthState.EMPTY
@@ -469,7 +474,7 @@ class InnerTube {
             ytClient(client, setLogin = true)
             setBody(
                 NextBody(
-                    context = client.toContext(queueLocale, visitorData, dataSyncId),
+                    context = client.toContext(locale, visitorData, dataSyncId),
                     videoId = videoId,
                     playlistId = playlistId,
                     playlistSetVideoId = playlistSetVideoId,
