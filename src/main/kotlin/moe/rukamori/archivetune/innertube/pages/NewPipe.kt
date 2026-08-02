@@ -12,7 +12,6 @@ import io.ktor.http.parseQueryString
 import kotlinx.coroutines.CancellationException
 import moe.rukamori.archivetune.innertube.models.YouTubeClient
 import moe.rukamori.archivetune.innertube.models.response.PlayerResponse
-import moe.rukamori.archivetune.morideobfuscator.MoriCipherRuntime
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -92,14 +91,9 @@ object NewPipeUtils {
         NewPipe.init(NewPipeDownloaderImpl(YouTube.streamProxy))
     }
 
-    suspend fun getSignatureTimestamp(videoId: String): Result<Int> {
-        MoriCipherRuntime.signatureTimestamp(videoId).getOrNull()?.let {
-            return Result.success(it)
-        }
-        return runCatching {
-            withJavaScriptPlayerCacheRecovery {
-                YoutubeJavaScriptPlayerManager.getSignatureTimestamp(videoId)
-            }
+    suspend fun getSignatureTimestamp(videoId: String): Result<Int> = runCatching {
+        withJavaScriptPlayerCacheRecovery {
+            YoutubeJavaScriptPlayerManager.getSignatureTimestamp(videoId)
         }
     }
 
@@ -111,56 +105,35 @@ object NewPipeUtils {
     ): Result<String> {
         try {
             val directUrl = format.url
-            if (directUrl != null) {
-                val resolvedDirectUrl =
+            val resolvedDirectUrl =
+                if (directUrl != null) {
                     if (directUrl.toHttpUrlOrNull()?.queryParameter("n")?.isNotBlank() == true) {
-                        MoriCipherRuntime
-                            .transformNParameter(videoId, directUrl)
-                            .getOrElse {
-                                getUrlWithThrottlingParameterDeobfuscated(videoId, directUrl)
-                            }
+                        getUrlWithThrottlingParameterDeobfuscated(videoId, directUrl)
                     } else {
                         directUrl
                     }
+                } else {
+                    val cipherString =
+                        format.signatureCipher ?: format.cipher
+                            ?: throw ParsingException("Could not find format url")
 
-                return Result.success(
-                    YouTube.appendGvsPoToken(
-                        url = resolvedDirectUrl,
-                        client = client,
-                        authState = authState,
-                    ),
-                )
-            }
+                    val params = parseQueryString(cipherString)
+                    val obfuscatedSignature = params["s"] ?: throw ParsingException("Could not parse cipher signature")
+                    val signatureParam = params["sp"]?.takeIf { it.isNotBlank() } ?: "signature"
+                    val urlString = params["url"] ?: throw ParsingException("Could not parse cipher url")
 
-            val cipherString =
-                format.signatureCipher ?: format.cipher
-                    ?: return Result.failure(ParsingException("Could not find format url"))
+                    val urlBuilder = URLBuilder(urlString)
 
-            MoriCipherRuntime.resolveStreamUrl(videoId, cipherString).getOrNull()?.let { resolved ->
-                return Result.success(
-                    YouTube.appendGvsPoToken(
-                        url = resolved,
-                        client = client,
-                        authState = authState,
-                    ),
-                )
-            }
+                    val deobfuscatedSig =
+                        withJavaScriptPlayerCacheRecovery {
+                            YoutubeJavaScriptPlayerManager.deobfuscateSignature(videoId, obfuscatedSignature)
+                        }
 
-            val params = parseQueryString(cipherString)
-            val obfuscatedSignature = params["s"] ?: throw ParsingException("Could not parse cipher signature")
-            val signatureParam = params["sp"]?.takeIf { it.isNotBlank() } ?: "signature"
-            val urlString = params["url"] ?: throw ParsingException("Could not parse cipher url")
-
-            val urlBuilder = URLBuilder(urlString)
-
-            val deobfuscatedSig =
-                withJavaScriptPlayerCacheRecovery {
-                    YoutubeJavaScriptPlayerManager.deobfuscateSignature(videoId, obfuscatedSignature)
+                    urlBuilder.parameters[signatureParam] = deobfuscatedSig
+                    urlBuilder.buildString()
                 }
 
-            urlBuilder.parameters[signatureParam] = deobfuscatedSig
-
-            val resolvedUrl = getUrlWithThrottlingParameterDeobfuscated(videoId, urlBuilder.buildString())
+            val resolvedUrl = getUrlWithThrottlingParameterDeobfuscated(videoId, resolvedDirectUrl)
 
             return Result.success(
                 YouTube.appendGvsPoToken(

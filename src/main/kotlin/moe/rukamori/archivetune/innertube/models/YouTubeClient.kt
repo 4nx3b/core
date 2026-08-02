@@ -30,6 +30,8 @@ data class YouTubeClient(
     val loginRequired: Boolean = false,
     val useSignatureTimestamp: Boolean = false,
     val useWebPoTokens: Boolean = false,
+    val requirePoToken: Boolean = false,
+    val includeUserAgentInContext: Boolean = false,
     val isEmbedded: Boolean = false,
 ) {
     fun toContext(
@@ -41,6 +43,7 @@ data class YouTubeClient(
             Context.Client(
                 clientName = clientName,
                 clientVersion = clientVersion,
+                userAgent = if (includeUserAgentInContext) userAgent else null,
                 osName = osName,
                 osVersion = osVersion,
                 deviceMake = deviceMake,
@@ -123,6 +126,17 @@ data class YouTubeClient(
                 supportsCookieAuthentication = true,
                 loginRequired = true,
                 useSignatureTimestamp = true,
+            )
+
+        val TVHTML5_SIMPLY =
+            YouTubeClient(
+                clientName = "TVHTML5_SIMPLY",
+                clientVersion = "1.0",
+                clientId = "75",
+                userAgent = TVHTML5.userAgent,
+                useSignatureTimestamp = true,
+                useWebPoTokens = true,
+                requirePoToken = true,
             )
 
         val TVHTML5_SIMPLY_EMBEDDED_PLAYER =
