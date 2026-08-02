@@ -12,7 +12,6 @@ import io.ktor.http.parseQueryString
 import kotlinx.coroutines.CancellationException
 import moe.rukamori.archivetune.innertube.models.YouTubeClient
 import moe.rukamori.archivetune.innertube.models.response.PlayerResponse
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.schabi.newpipe.extractor.NewPipe
@@ -104,14 +103,10 @@ object NewPipeUtils {
         authState: PlaybackAuthState = YouTube.currentPlaybackAuthState(),
     ): Result<String> {
         try {
-            val directUrl = format.url
-            val resolvedDirectUrl =
+            val resolvedUrl = run {
+                val directUrl = format.url
                 if (directUrl != null) {
-                    if (directUrl.toHttpUrlOrNull()?.queryParameter("n")?.isNotBlank() == true) {
-                        getUrlWithThrottlingParameterDeobfuscated(videoId, directUrl)
-                    } else {
-                        directUrl
-                    }
+                    directUrl
                 } else {
                     val cipherString =
                         format.signatureCipher ?: format.cipher
@@ -132,12 +127,13 @@ object NewPipeUtils {
                     urlBuilder.parameters[signatureParam] = deobfuscatedSig
                     urlBuilder.buildString()
                 }
+            }
 
-            val resolvedUrl = getUrlWithThrottlingParameterDeobfuscated(videoId, resolvedDirectUrl)
+            val finalUrl = getUrlWithThrottlingParameterDeobfuscated(videoId, resolvedUrl)
 
             return Result.success(
                 YouTube.appendGvsPoToken(
-                    url = resolvedUrl,
+                    url = finalUrl,
                     client = client,
                     authState = authState,
                 ),
