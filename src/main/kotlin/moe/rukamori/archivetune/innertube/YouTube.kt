@@ -262,20 +262,6 @@ object YouTube {
 
     fun hasPlaybackLoginContext(): Boolean = authState.hasPlaybackLoginContext
 
-    internal fun resolveGvsPoToken(authState: PlaybackAuthState = currentPlaybackAuthState()): String? = authState.resolveGvsPoToken()
-
-    internal fun appendGvsPoToken(
-        url: String,
-        client: YouTubeClient? = null,
-        authState: PlaybackAuthState = currentPlaybackAuthState(),
-    ): String {
-        val token = authState.resolveGvsPoToken(client) ?: return url
-        if (url.contains("pot=")) return url
-
-        val separator = if (url.contains("?")) "&" else "?"
-        return "$url${separator}pot=$token"
-    }
-
     suspend fun searchSuggestions(query: String): Result<SearchSuggestions> =
         runCatching {
             val response = innerTube.getSearchSuggestions(WEB_REMIX, query).body<GetSearchSuggestionsResponse>()

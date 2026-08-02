@@ -96,11 +96,16 @@ object NewPipeUtils {
         }
     }
 
+    /**
+     * Resolves a playable stream URL for [format] without applying the n-param transform.
+     *
+     * The caller (YTPlayerUtils) applies the single n-transform for web clients via
+     * CipherDeobfuscator.transformNParamInUrl, mirroring Metrolist's structure. Returning a raw
+     * URL here avoids a double n-transform (the transform is never applied twice to one URL).
+     */
     suspend fun getStreamUrl(
         format: PlayerResponse.StreamingData.Format,
         videoId: String,
-        client: YouTubeClient? = null,
-        authState: PlaybackAuthState = YouTube.currentPlaybackAuthState(),
     ): Result<String> {
         try {
             val resolvedUrl = run {
@@ -129,29 +134,13 @@ object NewPipeUtils {
                 }
             }
 
-            val finalUrl = getUrlWithThrottlingParameterDeobfuscated(videoId, resolvedUrl)
-
-            return Result.success(
-                YouTube.appendGvsPoToken(
-                    url = finalUrl,
-                    client = client,
-                    authState = authState,
-                ),
-            )
+            return Result.success(resolvedUrl)
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (error: Exception) {
             return Result.failure(error)
         }
     }
-
-    private fun getUrlWithThrottlingParameterDeobfuscated(
-        videoId: String,
-        url: String,
-    ): String =
-        withJavaScriptPlayerCacheRecovery {
-            YoutubeJavaScriptPlayerManager.getUrlWithThrottlingParameterDeobfuscated(videoId, url)
-        }
 
     private inline fun <T> withJavaScriptPlayerCacheRecovery(block: () -> T): T =
         try {
