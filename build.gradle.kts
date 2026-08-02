@@ -8,7 +8,6 @@ kotlin {
 }
 
 dependencies {
-    implementation(project(":morideobfuscator"))
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.okhttp.dnsoverhttps)
@@ -16,7 +15,7 @@ dependencies {
     implementation(libs.ktor.serialization.json)
     implementation(libs.ktor.client.encoding)
     implementation(libs.brotli)
-    implementation(libs.newpipe.extractor)
+    implementation(libs.metrolist.extractor)
     implementation(libs.re2j)
     implementation(libs.rhino)
     testImplementation(libs.junit)
