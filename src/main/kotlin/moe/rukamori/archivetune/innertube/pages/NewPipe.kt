@@ -15,7 +15,6 @@ import moe.rukamori.archivetune.innertube.models.response.PlayerResponse
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.schabi.newpipe.extractor.NewPipe
-import org.schabi.newpipe.extractor.downloader.CancellableCall
 import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Request
 import org.schabi.newpipe.extractor.downloader.Response
@@ -85,11 +84,6 @@ private class NewPipeDownloaderImpl(
         return Response(response.code, response.message, response.headers.toMultimap(), responseBodyToReturn, responseBodyToReturn.toByteArray(), latestUrl)
     }
 
-    // This extractor's Downloader adds an abstract executeAsync; ArchiveTune only ever issues
-    // synchronous requests through execute(), so this is stubbed (as in Metrolist).
-    override fun executeAsync(request: Request, callback: AsyncCallback?): CancellableCall {
-        TODO("Placeholder")
-    }
 }
 
 object NewPipeUtils {
