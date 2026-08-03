@@ -202,6 +202,14 @@ object YouTube {
         get() = if (streamBypassProxy) null else proxy
     val streamOkHttpProxy: Proxy
         get() = streamProxy ?: Proxy.NO_PROXY
+
+    /**
+     * Flag set by the Internet Settings region spoofer. When `true`, region-sensitive
+     * endpoints (home, search, charts, etc.) should go anonymous so YouTube honors the
+     * `gl` locale parameter set in [locale] instead of using the logged-in account's
+     * region. Reset to `false` when the user clears the region override (SYSTEM_DEFAULT).
+     */
+    var regionSpooferActive: Boolean = false
     var useLoginForBrowse: Boolean
         get() = innerTube.useLoginForBrowse
         set(value) {
