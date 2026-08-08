@@ -542,7 +542,10 @@ object YouTube {
         album: AlbumItem? = null,
     ): Result<List<SongItem>> =
         runCatching {
-            var response = innerTube.browse(WEB_REMIX, "VL$playlistId").body<BrowseResponse>()
+            // Same "VL" double-prefix guard as #playlist — community/radio-style IDs can
+            // already carry the prefix.
+            val normalizedPlaylistId = playlistId.removePrefix("VL").removePrefix("VL")
+            var response = innerTube.browse(WEB_REMIX, "VL$normalizedPlaylistId").body<BrowseResponse>()
             val songs = linkedMapOf<String, SongItem>()
 
             fun appendSongs(
@@ -863,11 +866,20 @@ object YouTube {
 
     suspend fun playlist(playlistId: String): Result<PlaylistPage> =
         runCatching {
+            // InnerTube's browse endpoint expects the playlist browse ID to be prefixed with
+            // "VL" — but community-playlist / radio-style IDs surfaced by YouTube Music search
+            // results can already start with "VL" (or "RDCL", "OLAK5uy", etc.). Unconditionally
+            // prepending "VL" produced "VLVL..." browse IDs that returned a private-playlist
+            // response, which we surfaced as a thrown IllegalStateException("PLAYLIST_PRIVATE")
+            // — and that exception, propagated through reportException(), was the most common
+            // cause of the "community playlists crash on open" bug. Strip any existing "VL"
+            // prefix first, then add exactly one.
+            val normalizedPlaylistId = playlistId.removePrefix("VL").removePrefix("VL")
             val response =
                 innerTube
                     .browse(
                         client = WEB_REMIX,
-                        browseId = "VL$playlistId",
+                        browseId = "VL$normalizedPlaylistId",
                         setLogin = true,
                     ).body<BrowseResponse>()
             val primarySection =
