@@ -20,6 +20,7 @@ import moe.rukamori.archivetune.innertube.models.filterExplicit
 import moe.rukamori.archivetune.innertube.models.filterVideo
 import moe.rukamori.archivetune.innertube.models.oddElements
 import moe.rukamori.archivetune.innertube.models.splitBySeparator
+import moe.rukamori.archivetune.innertube.models.toArtists
 import moe.rukamori.archivetune.innertube.utils.parseTime
 
 data class SearchSummary(
@@ -75,12 +76,12 @@ data class SearchSummaryPage(
                                 ?.firstOrNull()
                                 ?.text ?: return null,
                         artists =
-                            subtitle?.getOrNull(1)?.oddElements()?.map {
-                                Artist(
-                                    name = it.text,
-                                    id = it.navigationEndpoint?.browseEndpoint?.browseId,
-                                )
-                            } ?: return null,
+                            subtitle
+                                .orEmpty()
+                                .asSequence()
+                                .map { it.toArtists() }
+                                .firstOrNull { it.isNotEmpty() }
+                                .orEmpty(),
                         album =
                             subtitle.getOrNull(2)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
                                 Album(
