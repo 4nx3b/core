@@ -64,7 +64,7 @@ data class SearchSummaryPage(
 
     companion object {
         fun fromMusicCardShelfRenderer(renderer: MusicCardShelfRenderer): YTItem? {
-            val subtitle = renderer.subtitle.runs?.splitBySeparator()
+            val subtitle = renderer.subtitle.runs?.splitBySeparator().orEmpty()
             val thumbnail = renderer.thumbnail.musicThumbnailRenderer?.getBestThumbnail()
             return when {
                 renderer.onTap.watchEndpoint != null -> {
@@ -77,7 +77,6 @@ data class SearchSummaryPage(
                                 ?.text ?: return null,
                         artists =
                             subtitle
-                                .orEmpty()
                                 .asSequence()
                                 .map { it.toArtists() }
                                 .firstOrNull { it.isNotEmpty() }

@@ -100,7 +100,7 @@ object SearchPage {
                             ?.playlistId
                             ?: return null,
                     title = title,
-                    artists = metadata.getOrNull(0).toArtists().takeIf { it.isNotEmpty() },
+                    artists = metadata.getOrNull(0)?.toArtists()?.takeIf { it.isNotEmpty() },
                     year = metadata.year(),
                     thumbnail = itemThumbnail.normalizedUrl,
                     thumbnailWidth = itemThumbnail.width,
