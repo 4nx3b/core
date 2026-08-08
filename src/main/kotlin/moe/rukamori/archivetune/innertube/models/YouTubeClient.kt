@@ -89,6 +89,14 @@ data class YouTubeClient(
                 userAgent = USER_AGENT_WEB,
             )
 
+        val WEB_PRIMARY =
+            WEB.copy(
+                friendlyName = "Web Primary",
+                loginSupported = true,
+                supportsCookieAuthentication = true,
+                useSignatureTimestamp = true,
+            )
+
         val WEB_REMIX =
             YouTubeClient(
                 clientName = "WEB_REMIX",
