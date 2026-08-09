@@ -20,6 +20,7 @@ import moe.rukamori.archivetune.innertube.models.SongItem
 import moe.rukamori.archivetune.innertube.models.YTItem
 import moe.rukamori.archivetune.innertube.models.filterExplicit
 import moe.rukamori.archivetune.innertube.models.oddElements
+import moe.rukamori.archivetune.innertube.models.toArtists
 
 data class HomePage(
     val chips: List<Chip>?,
@@ -93,20 +94,7 @@ data class HomePage(
                 return when {
                     renderer.isSong -> {
                         val subtitleRuns = renderer.subtitle?.runs ?: return null
-                        val (artistRuns, albumRuns) =
-                            subtitleRuns.partition { run ->
-                                run.navigationEndpoint
-                                    ?.browseEndpoint
-                                    ?.browseId
-                                    ?.startsWith("UC") == true
-                            }
-                        val artists =
-                            artistRuns.map {
-                                Artist(
-                                    name = it.text,
-                                    id = it.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
-                                )
-                            }
+                        val artists = subtitleRuns.toArtists()
                         val thumbnail = renderer.thumbnailRenderer.musicThumbnailRenderer?.getBestThumbnail() ?: return null
                         SongItem(
                             id = renderer.navigationEndpoint.watchEndpoint?.videoId ?: return null,
@@ -116,7 +104,7 @@ data class HomePage(
                                     ?.text ?: return null,
                             artists = artists,
                             album =
-                                albumRuns
+                                subtitleRuns
                                     .firstOrNull { run ->
                                         run.navigationEndpoint
                                             ?.browseEndpoint

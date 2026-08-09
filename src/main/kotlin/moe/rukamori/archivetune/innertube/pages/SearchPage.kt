@@ -18,8 +18,8 @@ import moe.rukamori.archivetune.innertube.models.SongItem
 import moe.rukamori.archivetune.innertube.models.WatchEndpoint
 import moe.rukamori.archivetune.innertube.models.YTItem
 import moe.rukamori.archivetune.innertube.models.clean
-import moe.rukamori.archivetune.innertube.models.oddElements
 import moe.rukamori.archivetune.innertube.models.splitBySeparator
+import moe.rukamori.archivetune.innertube.models.toArtists
 import moe.rukamori.archivetune.innertube.utils.parseTime
 
 data class SearchResult(
@@ -39,7 +39,12 @@ object SearchPage {
                 SongItem(
                     id = renderer.playlistItemData?.videoId ?: endpoint?.videoId ?: return null,
                     title = title,
-                    artists = metadata.getOrNull(0).toArtists(),
+                    artists =
+                        metadata
+                            .asSequence()
+                            .map { it.toArtists() }
+                            .firstOrNull { it.isNotEmpty() }
+                            .orEmpty(),
                     album =
                         metadata.getOrNull(1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
                             Album(
@@ -95,7 +100,7 @@ object SearchPage {
                             ?.playlistId
                             ?: return null,
                     title = title,
-                    artists = metadata.getOrNull(0).toArtists().takeIf { it.isNotEmpty() },
+                    artists = metadata.getOrNull(0)?.toArtists()?.takeIf { it.isNotEmpty() },
                     year = metadata.year(),
                     thumbnail = itemThumbnail.normalizedUrl,
                     thumbnailWidth = itemThumbnail.width,
@@ -185,16 +190,6 @@ private fun MusicResponsiveListItemRenderer.watchEndpoint(): WatchEndpoint? =
             ?.musicPlayButtonRenderer
             ?.playNavigationEndpoint
             ?.anyWatchEndpoint
-
-private fun List<Run>?.toArtists(): List<Artist> =
-    this
-        ?.oddElements()
-        ?.map {
-            Artist(
-                name = it.text,
-                id = it.navigationEndpoint?.browseEndpoint?.browseId,
-            )
-        }.orEmpty()
 
 private fun List<List<Run>>.duration(): Int? {
     for (group in asReversed()) {
