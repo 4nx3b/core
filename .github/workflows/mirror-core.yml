@@ -146,11 +146,11 @@ jobs:
           Staged here (vossgraves/core:${PR_BRANCH}) by the mirror workflow; merging
           keeps the app's core submodule pin resolvable on 4nx3b/core."
 
-          if ! gh pr list --repo "${FORK}" --head "${GITHUB_REPOSITORY}:${PR_BRANCH}" \
+          if ! gh pr list --repo "${FORK}" --head "${GITHUB_REPOSITORY_OWNER}:${PR_BRANCH}" \
               --state open --json number --jq '.[0].number' | grep -q .; then
             gh pr create --repo "${FORK}" \
               --base main \
-              --head "${GITHUB_REPOSITORY}:${PR_BRANCH}" \
+              --head "${GITHUB_REPOSITORY_OWNER}:${PR_BRANCH}" \
               --title "${TITLE}" --body "${BODY}"
             echo "Opened PR."
           else
