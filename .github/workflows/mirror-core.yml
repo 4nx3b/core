@@ -139,8 +139,8 @@ jobs:
           set -euo pipefail
           TITLE="merge(upstream): rukamori/core main"
           BODY="Automated sync of rukamori/core main onto the Metrolist fork lineage.
-Staged here (vossgraves/core:${PR_BRANCH}) by the mirror workflow; merging
-keeps the app's core submodule pin resolvable on 4nx3b/core."
+          Staged here (vossgraves/core:${PR_BRANCH}) by the mirror workflow; merging
+          keeps the app's core submodule pin resolvable on 4nx3b/core."
 
           if ! gh pr list --repo "${FORK}" --head "${GITHUB_REPOSITORY}:${PR_BRANCH}" \
               --state open --json number --jq '.[0].number' | grep -q .; then
