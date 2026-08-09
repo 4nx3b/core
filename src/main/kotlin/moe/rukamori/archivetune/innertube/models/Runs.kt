@@ -48,3 +48,17 @@ fun List<Run>.oddElements() =
     filterIndexed { index, _ ->
         index % 2 == 0
     }
+
+fun List<Run>.toArtists(): List<Artist> =
+    mapNotNull { run ->
+        val endpoint = run.navigationEndpoint?.browseEndpoint ?: return@mapNotNull null
+        if (!endpoint.isArtistEndpoint && !endpoint.browseId.startsWith("UC")) return@mapNotNull null
+        run.text
+            .takeIf(String::isNotBlank)
+            ?.let { name ->
+                Artist(
+                    name = name,
+                    id = endpoint.browseId,
+                )
+            }
+    }

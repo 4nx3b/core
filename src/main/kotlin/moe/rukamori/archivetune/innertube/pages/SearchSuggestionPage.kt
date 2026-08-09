@@ -16,6 +16,7 @@ import moe.rukamori.archivetune.innertube.models.SongItem
 import moe.rukamori.archivetune.innertube.models.YTItem
 import moe.rukamori.archivetune.innertube.models.oddElements
 import moe.rukamori.archivetune.innertube.models.splitBySeparator
+import moe.rukamori.archivetune.innertube.models.toArtists
 
 object SearchSuggestionPage {
     fun fromMusicResponsiveListItemRenderer(renderer: MusicResponsiveListItemRenderer): YTItem? {
@@ -34,19 +35,12 @@ object SearchSuggestionPage {
                             ?.text ?: return null,
                     artists =
                         renderer.flexColumns
-                            .getOrNull(1)
-                            ?.musicResponsiveListItemFlexColumnRenderer
-                            ?.text
-                            ?.runs
-                            ?.splitBySeparator()
-                            ?.getOrNull(1)
-                            ?.oddElements()
-                            ?.map {
-                                Artist(
-                                    name = it.text,
-                                    id = it.navigationEndpoint?.browseEndpoint?.browseId,
-                                )
-                            } ?: return null,
+                            .drop(1)
+                            .flatMap {
+                                it.musicResponsiveListItemFlexColumnRenderer.text
+                                    ?.runs
+                                    .orEmpty()
+                            }.toArtists(),
                     album =
                         renderer.flexColumns
                             .getOrNull(
