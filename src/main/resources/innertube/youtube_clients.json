@@ -2,13 +2,13 @@
   "profiles": {
     "WEB": {
       "clientName": "WEB",
-      "clientVersion": "2.20260114.00.00",
+      "clientVersion": "2.20260708.00.00",
       "clientId": "1",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
     },
     "WEB_PRIMARY": {
       "clientName": "WEB",
-      "clientVersion": "2.20260114.00.00",
+      "clientVersion": "2.20260708.00.00",
       "clientId": "1",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
       "friendlyName": "Web Primary",
@@ -18,7 +18,7 @@
     },
     "WEB_REMIX": {
       "clientName": "WEB_REMIX",
-      "clientVersion": "1.20260213.01.00",
+      "clientVersion": "1.20260707.12.00",
       "clientId": "67",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0",
       "loginSupported": true,
@@ -28,7 +28,7 @@
     },
     "WEB_CREATOR": {
       "clientName": "WEB_CREATOR",
-      "clientVersion": "1.20260114.00.00",
+      "clientVersion": "1.20260708.06.00",
       "clientId": "62",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
       "loginSupported": true,
@@ -38,7 +38,7 @@
     },
     "TVHTML5": {
       "clientName": "TVHTML5",
-      "clientVersion": "7.20260114.00.00",
+      "clientVersion": "7.20260707.07.00",
       "clientId": "7",
       "userAgent": "Mozilla/5.0(SMART-TV; Linux; Tizen 4.0.0.2) AppleWebkit/605.1.15 (KHTML, like Gecko) SamsungBrowser/9.2 TV Safari/605.1.15",
       "loginSupported": true,
@@ -58,16 +58,19 @@
     },
     "IOS": {
       "clientName": "IOS",
-      "clientVersion": "19.29.1",
+      "clientVersion": "21.26.4",
       "clientId": "5",
-      "userAgent": "com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)",
-      "osVersion": "17.5.1.21F90"
+      "userAgent": "com.google.ios.youtube/21.26.4 (iPhone16,2; U; CPU iOS 18_3_2;)",
+      "osName": "iPhone",
+      "osVersion": "18.3.2.22D82"
     },
     "MOBILE": {
       "clientName": "ANDROID",
-      "clientVersion": "21.10.38",
+      "clientVersion": "21.26.364",
       "clientId": "3",
-      "userAgent": "com.google.android.youtube/21.10.38 (Linux; U; Android 15; en_US; Pixel 9 Pro; Build/AP4A.250205.002; Cronet/132.0.6834.79) gzip",
+      "userAgent": "com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip",
+      "osName": "Android",
+      "osVersion": "11",
       "loginSupported": true,
       "useSignatureTimestamp": true
     },
@@ -168,21 +171,21 @@
     },
     "MWEB": {
       "clientName": "MWEB",
-      "clientVersion": "2.20260114.00.00",
+      "clientVersion": "2.20260708.05.00",
       "clientId": "2",
       "userAgent": "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36",
       "friendlyName": "Mobile Web"
     },
     "WEB_SAFARI": {
       "clientName": "WEB",
-      "clientVersion": "2.20260114.00.00",
+      "clientVersion": "2.20260708.00.00",
       "clientId": "1",
       "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15",
       "friendlyName": "Web (Safari)"
     },
     "WEB_EMBEDDED": {
       "clientName": "WEB_EMBEDDED_PLAYER",
-      "clientVersion": "1.20260114.00.00",
+      "clientVersion": "2.20260708.00.00",
       "clientId": "56",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
       "friendlyName": "Web Embedded Player",
@@ -190,7 +193,7 @@
     },
     "WEB_MUSIC": {
       "clientName": "WEB_REMIX",
-      "clientVersion": "1.20260213.01.00",
+      "clientVersion": "1.20260707.12.00",
       "clientId": "67",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0",
       "friendlyName": "Web Music (YouTube Music)",

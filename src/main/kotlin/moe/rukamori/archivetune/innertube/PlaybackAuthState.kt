@@ -66,13 +66,21 @@ data class PlaybackAuthState(
     }
 
     fun resolveGvsPoToken(client: YouTubeClient? = null): String? {
-        if (client != null && !needsServiceIntegrity(client)) return null
+        if (client != null && !supportsGvsPoToken(client)) return null
         if (!webClientPoTokenEnabled) return null
         return poTokenGvs ?: poToken
     }
 
     companion object {
         val EMPTY = PlaybackAuthState()
+
+        fun supportsGvsPoToken(client: YouTubeClient): Boolean {
+            val name = client.clientName.uppercase(Locale.US)
+            return needsServiceIntegrity(client) ||
+                name.startsWith("ANDROID") ||
+                name.startsWith("IOS") ||
+                name == "TVHTML5_SIMPLY"
+        }
 
         internal fun needsServiceIntegrity(client: YouTubeClient): Boolean {
             val name = client.clientName.uppercase(Locale.US)
