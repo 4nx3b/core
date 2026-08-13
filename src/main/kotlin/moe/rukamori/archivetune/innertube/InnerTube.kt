@@ -209,6 +209,7 @@ class InnerTube {
                     val sapisidHash = sha1("$currentTime $loginCookieValue $requestOrigin")
                     append("Authorization", "SAPISIDHASH ${currentTime}_$sapisidHash")
                     append("X-Goog-AuthUser", "0")
+                    authState.dataSyncId.delegatedSessionIdOrNull()?.let { append("X-Goog-PageId", it) }
                 }
             }
         }
@@ -240,6 +241,7 @@ class InnerTube {
                     val sapisidHash = sha1("$currentTime $loginCookieValue $requestOrigin")
                     append("Authorization", "SAPISIDHASH ${currentTime}_$sapisidHash")
                     append("X-Goog-AuthUser", "0")
+                    authState.dataSyncId.delegatedSessionIdOrNull()?.let { append("X-Goog-PageId", it) }
                 }
             }
         }
@@ -268,6 +270,13 @@ class InnerTube {
                 currentDelay = (currentDelay * factor).toLong()
             }
         }
+    }
+
+    private fun String?.delegatedSessionIdOrNull(): String? {
+        val value = this?.trim()?.takeIf(String::isNotBlank) ?: return null
+        val separatorIndex = value.indexOf("||")
+        if (separatorIndex <= 0 || separatorIndex + 2 >= value.length) return null
+        return value.substring(0, separatorIndex).trim().takeIf(String::isNotBlank)
     }
 
     private fun Throwable.isTransientNetworkFailure(): Boolean {

@@ -2516,6 +2516,12 @@ object YouTube {
     }
 
     private fun JsonElement.findDelegationValue(): String? {
+        val dataSyncKeys =
+            setOf(
+                "datasyncId",
+                "dataSyncId",
+                "datasyncIdToken",
+            )
         val directKeys =
             setOf(
                 "onBehalfOfUser",
@@ -2529,7 +2535,7 @@ object YouTube {
                 "selectedSerializedDelegationContext",
                 "serializedDelegationContext",
             )
-        return findStringValue(directKeys) ?: findStringValue(fallbackKeys)
+        return findStringValue(dataSyncKeys) ?: findStringValue(directKeys) ?: findStringValue(fallbackKeys)
     }
 
     private fun JsonElement.findStringValue(keys: Set<String>): String? =
@@ -2562,17 +2568,7 @@ object YouTube {
     private fun JsonElement?.jsonPrimitiveOrNull(): JsonPrimitive? = this as? JsonPrimitive
 
     private fun String.normalizeAccountChannelDataSyncId(): String? {
-        val normalized =
-            trim()
-                .takeIf(String::isNotBlank)
-                ?.let { value ->
-                    value
-                        .takeIf { !it.contains("||") }
-                        ?: value.takeIf { it.endsWith("||") }?.substringBefore("||")
-                        ?: value.substringAfter("||")
-                }?.trim()
-                ?.takeIf(String::isNotBlank)
-        return normalized
+        return PlaybackAuthState(dataSyncId = this).normalized().dataSyncId
     }
 
     suspend fun getMediaInfo(videoId: String): Result<MediaInfo> =

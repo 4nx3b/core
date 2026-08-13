@@ -28,7 +28,7 @@ data class PlaybackAuthState(
         get() = hasLoginCookie && !dataSyncId.isNullOrBlank()
 
     val sessionId: String?
-        get() = if (hasPlaybackLoginContext) dataSyncId else visitorData
+        get() = if (hasPlaybackLoginContext) dataSyncId.userSessionIdOrNull() else visitorData
 
     val fingerprint: String
         get() =
@@ -103,9 +103,25 @@ private fun String?.normalizeAuthValue(): String? {
 
 private fun String?.normalizeDataSyncId(): String? {
     val normalized = this.normalizeAuthValue()?.decodePercentEscapes() ?: return null
-    return normalized.takeIf { !it.contains("||") }
-        ?: normalized.takeIf { it.endsWith("||") }?.substringBefore("||")
-        ?: normalized.substringAfter("||")
+    val separatorIndex = normalized.indexOf("||")
+    if (separatorIndex < 0) return normalized
+
+    val delegatedSessionId = normalized.substringBefore("||").trim()
+    val userSessionId = normalized.substring(separatorIndex + 2).trim()
+    return when {
+        delegatedSessionId.isBlank() -> userSessionId.takeIf(String::isNotBlank)
+        userSessionId.isBlank() -> delegatedSessionId
+        else -> "$delegatedSessionId||$userSessionId"
+    }
+}
+
+private fun String?.userSessionIdOrNull(): String? {
+    val normalized = this.normalizeAuthValue() ?: return null
+    val separatorIndex = normalized.indexOf("||")
+    return normalized
+        .substring(if (separatorIndex >= 0) separatorIndex + 2 else 0)
+        .trim()
+        .takeIf(String::isNotBlank)
 }
 
 private fun String.decodePercentEscapes(): String {
