@@ -70,6 +70,13 @@
       "useSignatureTimestamp": true,
       "isEmbedded": true
     },
+    "TVHTML5_SIMPLY": {
+      "clientName": "TVHTML5_SIMPLY",
+      "clientVersion": "1.0",
+      "clientId": "75",
+      "userAgent": "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version",
+      "friendlyName": "TV (Simply)"
+    },
     "IOS": {
       "clientName": "IOS",
       "clientVersion": "21.26.4",

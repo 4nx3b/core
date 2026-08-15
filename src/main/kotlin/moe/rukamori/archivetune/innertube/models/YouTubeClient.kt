@@ -110,6 +110,9 @@ data class YouTubeClient(
         val TVHTML5_SIMPLY_EMBEDDED_PLAYER: YouTubeClient
             get() = profile("TVHTML5_SIMPLY_EMBEDDED_PLAYER")
 
+        val TVHTML5_SIMPLY: YouTubeClient
+            get() = profile("TVHTML5_SIMPLY")
+
         val IOS: YouTubeClient
             get() = profile("IOS")
 
