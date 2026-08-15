@@ -58,14 +58,22 @@ data class YouTubeClient(
             ),
     )
 
-    fun requestOrigin(): String = if (usesYouTubeOrigin()) ORIGIN_YOUTUBE else ORIGIN_YOUTUBE_MUSIC
+    fun requestOrigin(): String =
+        when (clientName.uppercase(Locale.US)) {
+            "WEB_REMIX" -> ORIGIN_YOUTUBE_MUSIC
+            "MWEB" -> ORIGIN_YOUTUBE_MOBILE
+            else -> ORIGIN_YOUTUBE
+        }
 
-    fun requestReferer(): String = if (usesYouTubeOrigin()) REFERER_YOUTUBE_TV else REFERER_YOUTUBE_MUSIC
+    fun requestReferer(): String =
+        when (clientName.uppercase(Locale.US)) {
+            "WEB_REMIX" -> REFERER_YOUTUBE_MUSIC
+            "MWEB" -> REFERER_YOUTUBE_MOBILE
+            "TVHTML5", "TVHTML5_SIMPLY_EMBEDDED_PLAYER", "TVHTML5_SIMPLY" -> REFERER_YOUTUBE_TV
+            else -> REFERER_YOUTUBE
+        }
 
     fun requestApiUrl(endpoint: String): String = "${requestOrigin()}/youtubei/v1/$endpoint"
-
-    private fun usesYouTubeOrigin(): Boolean =
-        clientCatalog.youtubeOriginClientNames.contains(clientName.uppercase(Locale.US))
 
     companion object {
         const val USER_AGENT_WEB = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
@@ -76,6 +84,9 @@ data class YouTubeClient(
         const val API_URL_YOUTUBE_MUSIC = "$ORIGIN_YOUTUBE_MUSIC/youtubei/v1/"
 
         const val ORIGIN_YOUTUBE = "https://www.youtube.com"
+        const val REFERER_YOUTUBE = "$ORIGIN_YOUTUBE/"
+        const val ORIGIN_YOUTUBE_MOBILE = "https://m.youtube.com"
+        const val REFERER_YOUTUBE_MOBILE = "$ORIGIN_YOUTUBE_MOBILE/"
         const val REFERER_YOUTUBE_TV = "$ORIGIN_YOUTUBE/tv"
 
         val WEB: YouTubeClient
@@ -92,6 +103,9 @@ data class YouTubeClient(
 
         val TVHTML5: YouTubeClient
             get() = profile("TVHTML5")
+
+        val TVHTML5_DOWNGRADED: YouTubeClient
+            get() = profile("TVHTML5_DOWNGRADED")
 
         val TVHTML5_SIMPLY_EMBEDDED_PLAYER: YouTubeClient
             get() = profile("TVHTML5_SIMPLY_EMBEDDED_PLAYER")

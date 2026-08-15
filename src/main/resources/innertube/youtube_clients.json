@@ -4,7 +4,11 @@
       "clientName": "WEB",
       "clientVersion": "2.20260708.00.00",
       "clientId": "1",
-      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+      "loginSupported": true,
+      "supportsCookieAuthentication": true,
+      "useSignatureTimestamp": true,
+      "useWebPoTokens": true
     },
     "WEB_PRIMARY": {
       "clientName": "WEB",
@@ -34,7 +38,8 @@
       "loginSupported": true,
       "supportsCookieAuthentication": true,
       "loginRequired": true,
-      "useSignatureTimestamp": true
+      "useSignatureTimestamp": true,
+      "useWebPoTokens": true
     },
     "TVHTML5": {
       "clientName": "TVHTML5",
@@ -45,6 +50,15 @@
       "supportsCookieAuthentication": true,
       "loginRequired": true,
       "useSignatureTimestamp": true
+    },
+    "TVHTML5_DOWNGRADED": {
+      "clientName": "TVHTML5",
+      "clientVersion": "5.20260707",
+      "clientId": "7",
+      "userAgent": "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version",
+      "friendlyName": "TV (Compatibility)",
+      "loginSupported": true,
+      "supportsCookieAuthentication": true
     },
     "TVHTML5_SIMPLY_EMBEDDED_PLAYER": {
       "clientName": "TVHTML5_SIMPLY_EMBEDDED_PLAYER",
@@ -174,14 +188,17 @@
       "clientVersion": "2.20260708.05.00",
       "clientId": "2",
       "userAgent": "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36",
-      "friendlyName": "Mobile Web"
+      "friendlyName": "Mobile Web",
+      "supportsCookieAuthentication": true,
+      "useWebPoTokens": true
     },
     "WEB_SAFARI": {
       "clientName": "WEB",
       "clientVersion": "2.20260708.00.00",
       "clientId": "1",
       "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15",
-      "friendlyName": "Web (Safari)"
+      "friendlyName": "Web (Safari)",
+      "supportsCookieAuthentication": true
     },
     "WEB_EMBEDDED": {
       "clientName": "WEB_EMBEDDED_PLAYER",
@@ -189,6 +206,7 @@
       "clientId": "56",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
       "friendlyName": "Web Embedded Player",
+      "supportsCookieAuthentication": true,
       "isEmbedded": true
     },
     "WEB_MUSIC": {

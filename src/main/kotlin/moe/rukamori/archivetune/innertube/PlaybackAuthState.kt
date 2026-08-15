@@ -61,12 +61,12 @@ data class PlaybackAuthState(
         val explicit = explicitPoToken.normalizeAuthValue()
         if (explicit != null) return explicit
         if (!webClientPoTokenEnabled) return null
-        if (!needsServiceIntegrity(client)) return null
-        return poTokenPlayer ?: poToken
+        if (!supportsWebPoToken(client)) return null
+        return poTokenPlayer ?: poToken.takeUnless { poTokenGvs != null }
     }
 
     fun resolveGvsPoToken(client: YouTubeClient? = null): String? {
-        if (client != null && !supportsGvsPoToken(client)) return null
+        if (client != null && !supportsWebPoToken(client)) return null
         if (!webClientPoTokenEnabled) return null
         return poTokenGvs ?: poToken
     }
@@ -75,23 +75,15 @@ data class PlaybackAuthState(
         val EMPTY = PlaybackAuthState()
 
         fun supportsGvsPoToken(client: YouTubeClient): Boolean {
-            val name = client.clientName.uppercase(Locale.US)
-            return needsServiceIntegrity(client) ||
-                name.startsWith("ANDROID") ||
-                name.startsWith("IOS") ||
-                name == "TVHTML5_SIMPLY"
+            return supportsWebPoToken(client)
         }
 
-        internal fun needsServiceIntegrity(client: YouTubeClient): Boolean {
+        private fun supportsWebPoToken(client: YouTubeClient): Boolean {
             val name = client.clientName.uppercase(Locale.US)
             return name == "WEB" ||
                 name == "WEB_REMIX" ||
                 name == "WEB_CREATOR" ||
-                name == "MWEB" ||
-                name == "WEB_EMBEDDED_PLAYER" ||
-                name == "TVHTML5" ||
-                name == "TVHTML5_SIMPLY_EMBEDDED_PLAYER" ||
-                name == "TVHTML5_SIMPLY"
+                name == "MWEB"
         }
     }
 }
