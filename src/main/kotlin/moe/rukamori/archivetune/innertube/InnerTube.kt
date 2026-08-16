@@ -526,15 +526,29 @@ class InnerTube {
     suspend fun getTranscript(
         client: YouTubeClient,
         videoId: String,
+        authState: PlaybackAuthState = currentAuthState(),
+        poToken: String? = null,
     ) = withRetry {
         httpClient.post("https://music.youtube.com/youtubei/v1/get_transcript") {
             parameter("key", "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX3")
-            headers {
-                append("Content-Type", "application/json")
+            poToken?.let {
+                parameter("pot", it)
+                parameter("potc", "1")
+                parameter("c", client.clientId)
             }
+            ytClient(
+                client = client,
+                setLogin = authState.hasPlaybackLoginContext,
+                authState = authState,
+            )
             setBody(
                 GetTranscriptBody(
-                    context = client.toContext(locale, null, null),
+                    context =
+                        client.toContext(
+                            locale = locale,
+                            visitorData = authState.visitorData,
+                            dataSyncId = if (authState.hasPlaybackLoginContext) authState.dataSyncId else null,
+                        ),
                     params =
                         Base64.Default.encode(
                             "\n${11.toChar()}$videoId".encodeToByteArray(),

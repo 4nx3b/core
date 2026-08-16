@@ -127,6 +127,7 @@ object NewPipeUtils {
                     YouTube.appendGvsPoToken(
                         url = resolvedDirectUrl,
                         client = client,
+                        videoId = videoId,
                         authState = authState,
                     ),
                 )
@@ -141,6 +142,7 @@ object NewPipeUtils {
                     YouTube.appendGvsPoToken(
                         url = resolved,
                         client = client,
+                        videoId = videoId,
                         authState = authState,
                     ),
                 )
@@ -166,6 +168,7 @@ object NewPipeUtils {
                 YouTube.appendGvsPoToken(
                     url = resolvedUrl,
                     client = client,
+                    videoId = videoId,
                     authState = authState,
                 ),
             )

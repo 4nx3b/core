@@ -168,9 +168,14 @@ object YouTube {
             authState = authState.copy(webClientPoTokenEnabled = value)
         }
     var poTokenGvs: String?
-        get() = authState.poTokenGvs
+        get() = authState.poTokenGvs ?: authState.poTokenGvsSession
         set(value) {
-            authState = authState.copy(poTokenGvs = value)
+            authState =
+                authState.copy(
+                    poTokenGvs = null,
+                    poTokenGvsSession = value,
+                    poTokenGvsVideoId = null,
+                )
         }
     var poTokenPlayer: String?
         get() = authState.poTokenPlayer
@@ -251,25 +256,31 @@ object YouTube {
     private fun resolvePlayerPoToken(
         client: YouTubeClient,
         explicitPoToken: String?,
+        videoId: String,
         authState: PlaybackAuthState,
     ): String? =
         authState.resolvePlayerPoToken(
             client = client,
             explicitPoToken = explicitPoToken,
+            videoId = videoId,
         )
 
     fun hasLoginCookie(): Boolean = authState.hasLoginCookie
 
     fun hasPlaybackLoginContext(): Boolean = authState.hasPlaybackLoginContext
 
-    internal fun resolveGvsPoToken(authState: PlaybackAuthState = currentPlaybackAuthState()): String? = authState.resolveGvsPoToken()
+    internal fun resolveGvsPoToken(
+        videoId: String? = null,
+        authState: PlaybackAuthState = currentPlaybackAuthState(),
+    ): String? = authState.resolveGvsPoToken(videoId = videoId)
 
     internal fun appendGvsPoToken(
         url: String,
         client: YouTubeClient? = null,
+        videoId: String? = null,
         authState: PlaybackAuthState = currentPlaybackAuthState(),
     ): String {
-        val token = authState.resolveGvsPoToken(client) ?: return url
+        val token = authState.resolveGvsPoToken(client = client, videoId = videoId) ?: return url
         if (url.contains("pot=")) return url
 
         val separator = if (url.contains("?")) "&" else "?"
@@ -2092,7 +2103,7 @@ object YouTube {
         authState: PlaybackAuthState = currentPlaybackAuthState(),
     ): Result<PlayerResponse> =
         try {
-            val resolvedPoToken = resolvePlayerPoToken(client, poToken, authState)
+            val resolvedPoToken = resolvePlayerPoToken(client, poToken, videoId, authState)
             Result.success(
                 innerTube
                     .player(
@@ -2341,7 +2352,15 @@ object YouTube {
 
     suspend fun transcript(videoId: String): Result<String> =
         runCatching {
-            val response = innerTube.getTranscript(WEB, videoId).body<GetTranscriptResponse>()
+            val currentAuthState = currentPlaybackAuthState()
+            val response =
+                innerTube
+                    .getTranscript(
+                        client = WEB_REMIX,
+                        videoId = videoId,
+                        authState = currentAuthState,
+                        poToken = currentAuthState.resolveSubsPoToken(WEB_REMIX, videoId),
+                    ).body<GetTranscriptResponse>()
             response.actions
                 ?.firstOrNull()
                 ?.updateEngagementPanelAction
