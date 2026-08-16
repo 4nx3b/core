@@ -109,6 +109,7 @@ object NewPipeUtils {
         client: YouTubeClient? = null,
         authState: PlaybackAuthState = YouTube.currentPlaybackAuthState(),
     ): Result<String> {
+        var moriFailure: Throwable? = null
         try {
             val directUrl = format.url
             if (directUrl != null) {
@@ -137,7 +138,9 @@ object NewPipeUtils {
                 format.signatureCipher ?: format.cipher
                     ?: return Result.failure(ParsingException("Could not find format url"))
 
-            MoriCipherRuntime.resolveStreamUrl(videoId, cipherString).getOrNull()?.let { resolved ->
+            val moriResult = MoriCipherRuntime.resolveStreamUrl(videoId, cipherString)
+            moriFailure = moriResult.exceptionOrNull()
+            moriResult.getOrNull()?.let { resolved ->
                 return Result.success(
                     YouTube.appendGvsPoToken(
                         url = resolved,
@@ -175,6 +178,7 @@ object NewPipeUtils {
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (error: Exception) {
+            moriFailure?.takeUnless { it === error }?.let(error::addSuppressed)
             return Result.failure(error)
         }
     }
@@ -187,13 +191,39 @@ object NewPipeUtils {
             YoutubeJavaScriptPlayerManager.getUrlWithThrottlingParameterDeobfuscated(videoId, url)
         }
 
-    private inline fun <T> withJavaScriptPlayerCacheRecovery(block: () -> T): T =
+    private inline fun <T> withJavaScriptPlayerCacheRecovery(block: () -> T): T {
         try {
-            block()
-        } catch (parsingFailure: ParsingException) {
-            throw parsingFailure
+            return block()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (error: Exception) {
+            if (!error.isStalePlayerJavaScriptFailure()) {
+                throw error
+            }
+
             runCatching { YoutubeJavaScriptPlayerManager.clearAllCaches() }
-            throw error
+            try {
+                return block()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (retryFailure: Exception) {
+                retryFailure.addSuppressed(error)
+                throw retryFailure
+            }
         }
+    }
+
+    private fun Throwable.isStalePlayerJavaScriptFailure(): Boolean {
+        var current: Throwable? = this
+        while (current != null) {
+            if (
+                current is ParsingException &&
+                current.message?.contains("deobfuscation function", ignoreCase = true) == true
+            ) {
+                return true
+            }
+            current = current.cause
+        }
+        return false
+    }
 }
