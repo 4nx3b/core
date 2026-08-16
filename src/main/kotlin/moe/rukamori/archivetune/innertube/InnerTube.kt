@@ -379,7 +379,7 @@ class InnerTube {
                                 it.copy(
                                     thirdParty =
                                         Context.ThirdParty(
-                                            embedUrl = "https://www.youtube.com/watch?v=$videoId",
+                                            embedUrl = "https://www.reddit.com/",
                                         ),
                                 )
                             } else {

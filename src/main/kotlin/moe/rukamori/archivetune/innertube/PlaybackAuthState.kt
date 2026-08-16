@@ -61,12 +61,12 @@ data class PlaybackAuthState(
         val explicit = explicitPoToken.normalizeAuthValue()
         if (explicit != null) return explicit
         if (!webClientPoTokenEnabled) return null
-        if (!supportsWebPoToken(client)) return null
+        if (!client.useWebPoTokens || !supportsWebPoToken(client)) return null
         return poTokenPlayer ?: poToken.takeUnless { poTokenGvs != null }
     }
 
     fun resolveGvsPoToken(client: YouTubeClient? = null): String? {
-        if (client != null && !supportsWebPoToken(client)) return null
+        if (client != null && (!client.useWebPoTokens || !supportsWebPoToken(client))) return null
         if (!webClientPoTokenEnabled) return null
         return poTokenGvs ?: poToken
     }

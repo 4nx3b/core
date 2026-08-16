@@ -2091,18 +2091,24 @@ object YouTube {
         setLogin: Boolean = true,
         authState: PlaybackAuthState = currentPlaybackAuthState(),
     ): Result<PlayerResponse> =
-        runCatching {
+        try {
             val resolvedPoToken = resolvePlayerPoToken(client, poToken, authState)
-            innerTube
-                .player(
-                    client = client,
-                    videoId = videoId,
-                    playlistId = playlistId,
-                    signatureTimestamp = signatureTimestamp,
-                    poToken = resolvedPoToken,
-                    setLogin = setLogin,
-                    authState = authState,
-                ).body<PlayerResponse>()
+            Result.success(
+                innerTube
+                    .player(
+                        client = client,
+                        videoId = videoId,
+                        playlistId = playlistId,
+                        signatureTimestamp = signatureTimestamp,
+                        poToken = resolvedPoToken,
+                        setLogin = setLogin,
+                        authState = authState,
+                    ).body<PlayerResponse>(),
+            )
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: Throwable) {
+            Result.failure(failure)
         }
 
     suspend fun registerPlayback(
