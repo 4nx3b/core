@@ -570,7 +570,7 @@ class InnerTube {
 
     suspend fun accountChannels(client: YouTubeClient) =
         withRetry {
-            httpClient.post("account/accounts_list") {
+            httpClient.post(client.requestApiUrl("account/accounts_list")) {
                 ytClient(client, setLogin = true)
                 setBody(AccountsListBody(client.toContext(locale, visitorData, dataSyncId)))
             }
