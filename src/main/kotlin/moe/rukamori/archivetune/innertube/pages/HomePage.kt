@@ -80,10 +80,9 @@ data class HomePage(
                             ?.browseEndpoint,
                     items =
                         renderer.contents
-                            .mapNotNull {
-                                it.musicTwoRowItemRenderer
-                            }.mapNotNull {
-                                fromMusicTwoRowItemRenderer(it)
+                            .mapNotNull { content ->
+                                content.musicTwoRowItemRenderer?.let { fromMusicTwoRowItemRenderer(it) }
+                                    ?: content.musicResponsiveListItemRenderer?.let { SearchPage.toYTItem(it) }
                             }.ifEmpty {
                                 return null
                             },
