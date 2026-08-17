@@ -1033,6 +1033,7 @@ object YouTube {
     private fun SectionListRenderer.Content.toHomeSection(): HomePage.Section? =
         musicCarouselShelfRenderer?.let { HomePage.Section.fromMusicCarouselShelfRenderer(it) }
             ?: musicShelfRenderer?.let { HomePage.Section.fromMusicShelfRenderer(it) }
+            ?: musicCardShelfRenderer?.let { HomePage.Section.fromMusicCardShelfRenderer(it) }
             ?: itemSectionRenderer?.contents.orEmpty().firstNotNullOfOrNull { content ->
                 content.musicShelfRenderer?.let { HomePage.Section.fromMusicShelfRenderer(it) }
             }

@@ -13,6 +13,7 @@ import moe.rukamori.archivetune.innertube.models.Artist
 import moe.rukamori.archivetune.innertube.models.ArtistItem
 import moe.rukamori.archivetune.innertube.models.BrowseEndpoint
 import moe.rukamori.archivetune.innertube.models.MusicCarouselShelfRenderer
+import moe.rukamori.archivetune.innertube.models.MusicCardShelfRenderer
 import moe.rukamori.archivetune.innertube.models.MusicMultiRowListItemRenderer
 import moe.rukamori.archivetune.innertube.models.MusicShelfRenderer
 import moe.rukamori.archivetune.innertube.models.MusicTwoRowItemRenderer
@@ -110,6 +111,34 @@ data class HomePage(
                             ?.buttonRenderer
                             ?.navigationEndpoint
                             ?.browseEndpoint,
+                    items = items,
+                )
+            }
+
+            fun fromMusicCardShelfRenderer(renderer: MusicCardShelfRenderer): Section? {
+                val items =
+                    renderer.contents.orEmpty().mapNotNull { content ->
+                        content.musicResponsiveListItemRenderer?.let { SearchPage.toYTItem(it) }
+                    }
+                if (items.isEmpty()) return null
+
+                val title =
+                    renderer.header
+                        ?.musicCardShelfHeaderBasicRenderer
+                        ?.title
+                        ?.runs
+                        ?.joinToString(separator = "") { it.text }
+                        ?.takeIf(String::isNotBlank)
+                        ?: renderer.title.runs
+                            ?.joinToString(separator = "") { it.text }
+                            ?.takeIf(String::isNotBlank)
+                        ?: return null
+
+                return Section(
+                    title = title,
+                    label = renderer.subtitle.runs?.joinToString(separator = "") { it.text }?.takeIf(String::isNotBlank),
+                    thumbnail = renderer.thumbnail.musicThumbnailRenderer?.getThumbnailUrl(),
+                    endpoint = renderer.onTap.browseEndpoint,
                     items = items,
                 )
             }
