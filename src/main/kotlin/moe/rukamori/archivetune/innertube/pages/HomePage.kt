@@ -13,6 +13,7 @@ import moe.rukamori.archivetune.innertube.models.Artist
 import moe.rukamori.archivetune.innertube.models.ArtistItem
 import moe.rukamori.archivetune.innertube.models.BrowseEndpoint
 import moe.rukamori.archivetune.innertube.models.MusicCarouselShelfRenderer
+import moe.rukamori.archivetune.innertube.models.MusicMultiRowListItemRenderer
 import moe.rukamori.archivetune.innertube.models.MusicShelfRenderer
 import moe.rukamori.archivetune.innertube.models.MusicTwoRowItemRenderer
 import moe.rukamori.archivetune.innertube.models.PlaylistItem
@@ -84,6 +85,7 @@ data class HomePage(
                             .mapNotNull { content ->
                                 content.musicTwoRowItemRenderer?.let { fromMusicTwoRowItemRenderer(it) }
                                     ?: content.musicResponsiveListItemRenderer?.let { SearchPage.toYTItem(it) }
+                                    ?: content.musicMultiRowListItemRenderer?.let { fromMusicMultiRowListItemRenderer(it) }
                             }.ifEmpty {
                                 return null
                             },
@@ -95,6 +97,7 @@ data class HomePage(
                 val items =
                     renderer.contents.orEmpty().mapNotNull { content ->
                         content.musicResponsiveListItemRenderer?.let { SearchPage.toYTItem(it) }
+                            ?: content.musicMultiRowListItemRenderer?.let { fromMusicMultiRowListItemRenderer(it) }
                     }
                 if (items.isEmpty()) return null
 
@@ -277,8 +280,36 @@ data class HomePage(
                     }
                 }
             }
+
+            private fun fromMusicMultiRowListItemRenderer(renderer: MusicMultiRowListItemRenderer): YTItem? {
+                val endpoint =
+                    renderer.onTap?.anyWatchEndpoint
+                        ?: renderer.overlay
+                            ?.musicItemThumbnailOverlayRenderer
+                            ?.content
+                            ?.musicPlayButtonRenderer
+                            ?.playNavigationEndpoint
+                            ?.anyWatchEndpoint
+                val thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getBestThumbnail()
+                val title = renderer.title?.runs?.joinToString(separator = "") { it.text }
+                if (endpoint == null || thumbnail == null || title.isNullOrBlank()) return null
+
+                return SongItem(
+                    id = endpoint.videoId ?: return null,
+                    title = title,
+                    artists = renderer.subtitle?.runs?.toArtists().orEmpty(),
+                    album = null,
+                    duration = null,
+                    thumbnail = thumbnail.normalizedUrl,
+                    thumbnailWidth = thumbnail.width,
+                    thumbnailHeight = thumbnail.height,
+                    explicit = false,
+                    endpoint = endpoint,
+                )
+            }
         }
     }
+}
 
     fun filterExplicit(enabled: Boolean = true) =
         if (enabled) {
