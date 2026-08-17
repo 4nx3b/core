@@ -1030,6 +1030,13 @@ object YouTube {
             playlistContinuationPageFromResponse(response, playlistId)
         }
 
+    private fun SectionListRenderer.Content.toHomeSection(): HomePage.Section? =
+        musicCarouselShelfRenderer?.let { HomePage.Section.fromMusicCarouselShelfRenderer(it) }
+            ?: musicShelfRenderer?.let { HomePage.Section.fromMusicShelfRenderer(it) }
+            ?: itemSectionRenderer?.contents.orEmpty().firstNotNullOfOrNull { content ->
+                content.musicShelfRenderer?.let { HomePage.Section.fromMusicShelfRenderer(it) }
+            }
+
     suspend fun home(
         continuation: String? = null,
         params: String? = null,
@@ -1061,10 +1068,8 @@ object YouTube {
             val sections =
                 sectionListRender
                     ?.contents!!
-                    .mapNotNull { it.musicCarouselShelfRenderer }
-                    .mapNotNull {
-                        HomePage.Section.fromMusicCarouselShelfRenderer(it)
-                    }.toMutableList()
+                    .mapNotNull { it.toHomeSection() }
+                    .toMutableList()
             val chips =
                 sectionListRender.header
                     ?.chipCloudRenderer
@@ -1081,10 +1086,8 @@ object YouTube {
                 response.continuationContents
                     ?.sectionListContinuation
                     ?.contents
-                    ?.mapNotNull { it.musicCarouselShelfRenderer }
-                    ?.mapNotNull {
-                        HomePage.Section.fromMusicCarouselShelfRenderer(it)
-                    }.orEmpty()
+                    ?.mapNotNull { it.toHomeSection() }
+                    .orEmpty()
             val nextContinuation =
                 if (sections.isEmpty()) {
                     null

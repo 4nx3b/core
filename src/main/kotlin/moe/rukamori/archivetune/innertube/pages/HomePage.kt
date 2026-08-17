@@ -13,6 +13,7 @@ import moe.rukamori.archivetune.innertube.models.Artist
 import moe.rukamori.archivetune.innertube.models.ArtistItem
 import moe.rukamori.archivetune.innertube.models.BrowseEndpoint
 import moe.rukamori.archivetune.innertube.models.MusicCarouselShelfRenderer
+import moe.rukamori.archivetune.innertube.models.MusicShelfRenderer
 import moe.rukamori.archivetune.innertube.models.MusicTwoRowItemRenderer
 import moe.rukamori.archivetune.innertube.models.PlaylistItem
 import moe.rukamori.archivetune.innertube.models.SectionListRenderer
@@ -89,14 +90,43 @@ data class HomePage(
                 )
             }
 
+            fun fromMusicShelfRenderer(renderer: MusicShelfRenderer): Section? {
+                val title = renderer.title?.runs?.firstOrNull()?.text ?: return null
+                val items =
+                    renderer.contents.orEmpty().mapNotNull { content ->
+                        content.musicResponsiveListItemRenderer?.let { SearchPage.toYTItem(it) }
+                    }
+                if (items.isEmpty()) return null
+
+                return Section(
+                    title = title,
+                    label = null,
+                    thumbnail = null,
+                    endpoint =
+                        renderer.moreContentButton
+                            ?.buttonRenderer
+                            ?.navigationEndpoint
+                            ?.browseEndpoint,
+                    items = items,
+                )
+            }
+
             private fun fromMusicTwoRowItemRenderer(renderer: MusicTwoRowItemRenderer): YTItem? {
                 return when {
                     renderer.isSong -> {
                         val subtitleRuns = renderer.subtitle?.runs ?: return null
                         val artists = subtitleRuns.toArtists()
                         val thumbnail = renderer.thumbnailRenderer.musicThumbnailRenderer?.getBestThumbnail() ?: return null
+                        val endpoint =
+                            renderer.navigationEndpoint.anyWatchEndpoint
+                                ?: renderer.thumbnailOverlay
+                                    ?.musicItemThumbnailOverlayRenderer
+                                    ?.content
+                                    ?.musicPlayButtonRenderer
+                                    ?.playNavigationEndpoint
+                                    ?.anyWatchEndpoint
                         SongItem(
-                            id = renderer.navigationEndpoint.watchEndpoint?.videoId ?: return null,
+                            id = endpoint?.videoId ?: return null,
                             title =
                                 renderer.title.runs
                                     ?.firstOrNull()
@@ -124,7 +154,7 @@ data class HomePage(
                                 renderer.subtitleBadges?.any {
                                     it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
                                 } == true,
-                            endpoint = renderer.navigationEndpoint.anyWatchEndpoint,
+                            endpoint = endpoint,
                         )
                     }
 
