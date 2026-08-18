@@ -56,6 +56,7 @@ data class HomePage(
         val thumbnail: String?,
         val endpoint: BrowseEndpoint?,
         val items: List<YTItem>,
+        val numItemsPerColumn: Int? = null,
     ) {
         companion object {
             fun fromMusicCarouselShelfRenderer(renderer: MusicCarouselShelfRenderer): Section? {
@@ -90,6 +91,7 @@ data class HomePage(
                             }.ifEmpty {
                                 return null
                             },
+                    numItemsPerColumn = renderer.numItemsPerColumn,
                 )
             }
 
