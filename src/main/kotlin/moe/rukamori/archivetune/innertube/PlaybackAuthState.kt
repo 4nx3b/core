@@ -54,6 +54,16 @@ data class PlaybackAuthState(
                 ).joinToString(separator = "\u0000"),
             )
 
+    val streamCacheFingerprint: String
+        get() =
+            sha1(
+                listOf(
+                    cookie.orEmpty(),
+                    visitorData.orEmpty(),
+                    dataSyncId.orEmpty(),
+                ).joinToString(separator = "\u0000"),
+            )
+
     fun normalized(): PlaybackAuthState =
         copy(
             cookie = cookie.normalizeAuthValue(),
