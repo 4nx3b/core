@@ -2354,16 +2354,18 @@ object YouTube {
                 }
         }
 
-    suspend fun transcript(videoId: String): Result<String> =
+    suspend fun transcript(
+        videoId: String,
+        authState: PlaybackAuthState = currentPlaybackAuthState(),
+    ): Result<String> =
         runCatching {
-            val currentAuthState = currentPlaybackAuthState()
             val response =
                 innerTube
                     .getTranscript(
                         client = WEB_REMIX,
                         videoId = videoId,
-                        authState = currentAuthState,
-                        poToken = currentAuthState.resolveSubsPoToken(WEB_REMIX, videoId),
+                        authState = authState,
+                        poToken = authState.resolveSubsPoToken(WEB_REMIX, videoId),
                     ).body<GetTranscriptResponse>()
             response.actions
                 ?.firstOrNull()

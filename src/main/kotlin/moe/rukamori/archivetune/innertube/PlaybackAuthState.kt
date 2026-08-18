@@ -88,9 +88,8 @@ data class PlaybackAuthState(
         if (explicit != null) return explicit
         if (!webClientPoTokenEnabled) return null
         if (!client.useWebPoTokens || !supportsWebPoToken(client)) return null
-        val playerToken =
-            poTokenPlayer?.takeIf { poTokenPlayerVideoId == null || poTokenPlayerVideoId == videoId }
-        return playerToken ?: poToken.takeUnless { poTokenGvs != null || poTokenGvsSession != null }
+        return poTokenPlayer?.takeIf { poTokenPlayerVideoId == videoId }
+            ?: poToken
     }
 
     fun resolveGvsPoToken(
@@ -100,15 +99,8 @@ data class PlaybackAuthState(
         if (client != null && (!client.useWebPoTokens || !supportsWebPoToken(client))) return null
         if (!webClientPoTokenEnabled) return null
 
-        val videoBoundToken =
-            poTokenGvs?.takeIf {
-                poTokenGvsVideoId == null || poTokenGvsVideoId == videoId
-            }
-        if (videoBoundToken != null) return videoBoundToken
-
-        val requiresVideoBoundToken = client?.let(::requiresVideoBoundGvsToken) == true
-        if (requiresVideoBoundToken) return null
-        return poTokenGvsSession ?: poToken
+        return poTokenGvs?.takeIf { poTokenGvsVideoId == videoId }
+            ?: poToken
     }
 
     fun resolveSubsPoToken(
@@ -117,9 +109,8 @@ data class PlaybackAuthState(
     ): String? {
         if (!client.useWebPoTokens || !supportsWebPoToken(client)) return null
         if (!webClientPoTokenEnabled) return null
-        return poTokenSubs?.takeIf { poTokenSubsVideoId == null || poTokenSubsVideoId == videoId }
-            ?: poTokenGvs?.takeIf { poTokenGvsVideoId == null || poTokenGvsVideoId == videoId }
-            ?: poTokenGvsSession
+        return poTokenSubs?.takeIf { poTokenSubsVideoId == videoId }
+            ?: poTokenGvs?.takeIf { poTokenGvsVideoId == videoId }
             ?: poToken
     }
 
@@ -137,9 +128,6 @@ data class PlaybackAuthState(
                 name == "WEB_CREATOR" ||
                 name == "MWEB"
         }
-
-        private fun requiresVideoBoundGvsToken(client: YouTubeClient): Boolean =
-            client.clientName.uppercase(Locale.US) == "WEB_CREATOR"
     }
 }
 
