@@ -1106,9 +1106,15 @@ object YouTube {
             )
         }
 
-    suspend fun explore(): Result<ExplorePage> =
+    suspend fun explore(useAccountContext: Boolean = true): Result<ExplorePage> =
         runCatching {
-            val response = innerTube.browse(WEB_REMIX, browseId = BROWSE_ID_EXPLORE).body<BrowseResponse>()
+            val response =
+                innerTube
+                    .browse(
+                        client = WEB_REMIX,
+                        browseId = BROWSE_ID_EXPLORE,
+                        useAccountContext = useAccountContext,
+                    ).body<BrowseResponse>()
             ExplorePage(
                 newReleaseAlbums =
                     response.contents
@@ -1171,14 +1177,20 @@ object YouTube {
                 .takeIf { it.isNotEmpty() }
                 ?.let { return@runCatching it }
 
-            explore().getOrThrow().newReleaseAlbums
+            explore(useAccountContext = false).getOrThrow().newReleaseAlbums
         }
 
     private suspend fun newReleaseAlbumsFromBrowsePage(
         browseId: String,
     ): List<AlbumItem> =
         try {
-            val response = innerTube.browse(WEB_REMIX, browseId = browseId).body<BrowseResponse>()
+            val response =
+                innerTube
+                    .browse(
+                        client = WEB_REMIX,
+                        browseId = browseId,
+                        useAccountContext = false,
+                    ).body<BrowseResponse>()
             response.newReleaseAlbumItems()
         } catch (throwable: Throwable) {
             if (throwable is CancellationException || !throwable.isBrowsePageUnavailable()) {
