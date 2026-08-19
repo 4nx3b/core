@@ -28,7 +28,6 @@ import moe.rukamori.archivetune.innertube.models.YouTubeClient
 import moe.rukamori.archivetune.innertube.models.YouTubeLocale
 import moe.rukamori.archivetune.innertube.models.body.*
 import moe.rukamori.archivetune.innertube.models.response.NextResponse
-import moe.rukamori.archivetune.innertube.proxy.RotatingProxySelector
 import moe.rukamori.archivetune.innertube.utils.sha1
 import moe.rukamori.archivetune.innertube.utils.youtubeLoginCookieValue
 import okhttp3.Dns
@@ -106,13 +105,6 @@ class InnerTube {
             httpClient = createClient()
         }
 
-    internal var proxySelector: RotatingProxySelector? = null
-        set(value) {
-            field = value
-            httpClient.close()
-            httpClient = createClient()
-        }
-
     var dns: Dns = Dns.SYSTEM
         set(value) {
             field = value
@@ -158,10 +150,7 @@ class InnerTube {
                 config {
                     addInterceptor(NetworkGatekeeper)
                     dns(this@InnerTube.dns)
-                    val sel = this@InnerTube.proxySelector
-                    if (sel != null) {
-                        proxySelector(sel)
-                    } else if (this@InnerTube.proxy == null) {
+                    if (this@InnerTube.proxy == null) {
                         proxy(Proxy.NO_PROXY)
                     } else if (this@InnerTube.proxy != null && !proxyUsername.isNullOrBlank() && !proxyPassword.isNullOrBlank()) {
                         proxyAuthenticator { _, response ->
@@ -173,7 +162,7 @@ class InnerTube {
                         }
                     }
                 }
-                if (this@InnerTube.proxySelector == null && this@InnerTube.proxy != null) {
+                if (this@InnerTube.proxy != null) {
                     proxy = this@InnerTube.proxy
                 }
             }
@@ -254,7 +243,6 @@ class InnerTube {
         factor: Double = 2.0,
         block: suspend () -> T,
     ): T {
-        val resolvedMaxAttempts = proxySelector?.activeCount()?.coerceIn(maxAttempts, 6) ?: maxAttempts
         var currentDelay = initialDelay
         var attempt = 0
         while (true) {
@@ -263,9 +251,7 @@ class InnerTube {
             } catch (e: Throwable) {
                 if (e is CancellationException || !e.isTransientNetworkFailure()) throw e
                 attempt++
-                proxySelector?.markLastSelectedFailed()
-                proxySelector?.rotate()
-                if (attempt >= resolvedMaxAttempts) throw e
+                if (attempt >= maxAttempts) throw e
                 delay(currentDelay)
                 currentDelay = (currentDelay * factor).toLong()
             }

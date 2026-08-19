@@ -12,14 +12,12 @@ import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -93,7 +91,6 @@ import moe.rukamori.archivetune.innertube.pages.SearchResult
 import moe.rukamori.archivetune.innertube.pages.SearchSuggestionPage
 import moe.rukamori.archivetune.innertube.pages.SearchSummary
 import moe.rukamori.archivetune.innertube.pages.SearchSummaryPage
-import moe.rukamori.archivetune.innertube.proxy.RotatingProxyClient
 import okhttp3.Dns
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -213,35 +210,6 @@ object YouTube {
         set(value) {
             innerTube.useLoginForBrowse = value
         }
-
-    val rotatingProxyClient = RotatingProxyClient()
-    private val _ipRotationActiveCount = MutableStateFlow(0)
-    val ipRotationActiveCount: StateFlow<Int> = _ipRotationActiveCount.asStateFlow()
-
-    suspend fun enableIpRotation() {
-        withContext(Dispatchers.IO) {
-            rotatingProxyClient.fetchAndLoad()
-            innerTube.proxySelector = rotatingProxyClient.selector()
-            _ipRotationActiveCount.value = rotatingProxyClient.activeCount()
-        }
-    }
-
-    suspend fun refreshIpRotation() {
-        withContext(Dispatchers.IO) {
-            if (rotatingProxyClient.activeCount() <= 1) {
-                rotatingProxyClient.fetchAndLoad()
-            } else {
-                rotatingProxyClient.rotate()
-            }
-            innerTube.proxySelector = rotatingProxyClient.selector()
-            _ipRotationActiveCount.value = rotatingProxyClient.activeCount()
-        }
-    }
-
-    fun disableIpRotation() {
-        innerTube.proxySelector = null
-        _ipRotationActiveCount.value = 0
-    }
 
     fun currentPlaybackAuthState(): PlaybackAuthState = authState
 

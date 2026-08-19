@@ -31,14 +31,12 @@ import moe.rukamori.archivetune.innertube.pages.PlaylistPage
 import moe.rukamori.archivetune.innertube.pages.RelatedPage
 import moe.rukamori.archivetune.innertube.pages.SearchResult
 import moe.rukamori.archivetune.innertube.pages.SearchSummaryPage
-import moe.rukamori.archivetune.innertube.proxy.RotatingProxyClient
 import okhttp3.Dns
 import java.net.Proxy
 
 interface MusicBackend {
     val authStateFlow: StateFlow<PlaybackAuthState>
     val historySyncEvent: SharedFlow<Unit>
-    val ipRotationActiveCount: StateFlow<Int>
 
     var authState: PlaybackAuthState
     var locale: YouTubeLocale
@@ -58,7 +56,6 @@ interface MusicBackend {
 
     val streamProxy: Proxy?
     val streamOkHttpProxy: Proxy
-    val rotatingProxyClient: RotatingProxyClient
 
     fun notifyHistorySynced()
 
@@ -67,12 +64,6 @@ interface MusicBackend {
     fun hasLoginCookie(): Boolean
 
     fun hasPlaybackLoginContext(): Boolean
-
-    suspend fun enableIpRotation()
-
-    suspend fun refreshIpRotation()
-
-    fun disableIpRotation()
 
     fun createDnsOverHttps(url: String): Dns
 
