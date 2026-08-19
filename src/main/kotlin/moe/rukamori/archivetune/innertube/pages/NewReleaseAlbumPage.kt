@@ -16,6 +16,7 @@ import moe.rukamori.archivetune.innertube.models.splitBySeparator
 
 object NewReleaseAlbumPage {
     fun fromMusicTwoRowItemRenderer(renderer: MusicTwoRowItemRenderer): AlbumItem? {
+        if (!renderer.isAlbum) return null
         val thumbnail = renderer.thumbnailRenderer.musicThumbnailRenderer?.getBestThumbnail() ?: return null
         val subtitleRuns = renderer.subtitle?.runs ?: return null
         val subtitleGroups = subtitleRuns.splitBySeparator()
