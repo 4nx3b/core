@@ -108,6 +108,7 @@ import kotlin.random.Random
 object YouTube {
     private const val BROWSE_ID_EXPLORE = "FEmusic_explore"
     private const val BROWSE_ID_NEW_RELEASE_ALBUMS = "FEmusic_new_releases_albums"
+    private const val BROWSE_ID_NEW_RELEASES = "FEmusic_new_releases"
     private const val BROWSE_ID_MOODS_AND_GENRES = "FEmusic_moods_and_genres"
     private const val PLAYLIST_EDIT_STATUS_SUCCEEDED = "STATUS_SUCCEEDED"
     private val playlistCoverResponseJson = Json { ignoreUnknownKeys = true }
@@ -1162,19 +1163,29 @@ object YouTube {
 
     suspend fun newReleaseAlbums(): Result<List<AlbumItem>> =
         runCatching {
-            try {
-                val directAlbums = newReleaseAlbumsFromBrowsePage()
-                if (directAlbums.isNotEmpty()) return@runCatching directAlbums
-            } catch (throwable: Throwable) {
-                if (!throwable.isBrowsePageUnavailable()) throw throwable
-            }
+            newReleaseAlbumsFromBrowsePage(BROWSE_ID_NEW_RELEASE_ALBUMS)
+                .takeIf { it.isNotEmpty() }
+                ?.let { return@runCatching it }
+
+            newReleaseAlbumsFromBrowsePage(BROWSE_ID_NEW_RELEASES)
+                .takeIf { it.isNotEmpty() }
+                ?.let { return@runCatching it }
+
             explore().getOrThrow().newReleaseAlbums
         }
 
-    private suspend fun newReleaseAlbumsFromBrowsePage(): List<AlbumItem> {
-        val response = innerTube.browse(WEB_REMIX, browseId = BROWSE_ID_NEW_RELEASE_ALBUMS).body<BrowseResponse>()
-        return response.newReleaseAlbumItems()
-    }
+    private suspend fun newReleaseAlbumsFromBrowsePage(
+        browseId: String,
+    ): List<AlbumItem> =
+        try {
+            val response = innerTube.browse(WEB_REMIX, browseId = browseId).body<BrowseResponse>()
+            response.newReleaseAlbumItems()
+        } catch (throwable: Throwable) {
+            if (throwable is CancellationException || !throwable.isBrowsePageUnavailable()) {
+                throw throwable
+            }
+            emptyList()
+        }
 
     private fun BrowseResponse.newReleaseAlbumItems(): List<AlbumItem> {
         val contents =
