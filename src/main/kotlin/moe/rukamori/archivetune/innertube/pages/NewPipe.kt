@@ -12,7 +12,6 @@ import io.ktor.http.parseQueryString
 import kotlinx.coroutines.CancellationException
 import moe.rukamori.archivetune.innertube.models.YouTubeClient
 import moe.rukamori.archivetune.innertube.models.response.PlayerResponse
-import moe.rukamori.archivetune.morideobfuscator.MoriCipherRuntime
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -92,16 +91,12 @@ object NewPipeUtils {
         NewPipe.init(NewPipeDownloaderImpl(YouTube.streamProxy))
     }
 
-    suspend fun getSignatureTimestamp(videoId: String): Result<Int> {
-        MoriCipherRuntime.signatureTimestamp(videoId).getOrNull()?.let {
-            return Result.success(it)
-        }
-        return runCatching {
+    suspend fun getSignatureTimestamp(videoId: String): Result<Int> =
+        runCatching {
             withJavaScriptPlayerCacheRecovery {
                 YoutubeJavaScriptPlayerManager.getSignatureTimestamp(videoId)
             }
         }
-    }
 
     suspend fun getStreamUrl(
         format: PlayerResponse.StreamingData.Format,
@@ -109,17 +104,12 @@ object NewPipeUtils {
         client: YouTubeClient? = null,
         authState: PlaybackAuthState = YouTube.currentPlaybackAuthState(),
     ): Result<String> {
-        var moriFailure: Throwable? = null
         try {
             val directUrl = format.url
             if (directUrl != null) {
                 val resolvedDirectUrl =
                     if (directUrl.toHttpUrlOrNull()?.queryParameter("n")?.isNotBlank() == true) {
-                        MoriCipherRuntime
-                            .transformNParameter(videoId, directUrl)
-                            .getOrElse {
-                                getUrlWithThrottlingParameterDeobfuscated(videoId, directUrl)
-                            }
+                        getUrlWithThrottlingParameterDeobfuscated(videoId, directUrl)
                     } else {
                         directUrl
                     }
@@ -137,19 +127,6 @@ object NewPipeUtils {
             val cipherString =
                 format.signatureCipher ?: format.cipher
                     ?: return Result.failure(ParsingException("Could not find format url"))
-
-            val moriResult = MoriCipherRuntime.resolveStreamUrl(videoId, cipherString)
-            moriFailure = moriResult.exceptionOrNull()
-            moriResult.getOrNull()?.let { resolved ->
-                return Result.success(
-                    YouTube.appendGvsPoToken(
-                        url = resolved,
-                        client = client,
-                        videoId = videoId,
-                        authState = authState,
-                    ),
-                )
-            }
 
             val params = parseQueryString(cipherString)
             val obfuscatedSignature = params["s"] ?: throw ParsingException("Could not parse cipher signature")
@@ -178,7 +155,6 @@ object NewPipeUtils {
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (error: Exception) {
-            moriFailure?.takeUnless { it === error }?.let(error::addSuppressed)
             return Result.failure(error)
         }
     }
