@@ -16,6 +16,7 @@ dependencies {
     implementation(libs.ktor.client.encoding)
     implementation(libs.brotli)
     implementation(libs.metrolist.extractor)
+    api(libs.innertubex)
     implementation(libs.re2j)
     implementation(libs.rhino)
     testImplementation(libs.junit)
