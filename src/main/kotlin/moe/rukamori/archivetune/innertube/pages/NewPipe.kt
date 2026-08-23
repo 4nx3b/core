@@ -114,7 +114,7 @@ private class NewPipeDownloaderImpl(
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
                 try {
                     val result = processResponse(response, url)
-                    callback?.onResult(result)
+                    callback?.onSuccess(result)
                 } catch (e: Exception) {
                     callback?.onError(e)
                 }
