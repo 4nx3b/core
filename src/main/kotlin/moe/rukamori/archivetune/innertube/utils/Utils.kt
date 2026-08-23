@@ -142,7 +142,6 @@ private val YOUTUBE_LOGIN_COOKIE_NAMES =
         "SAPISID",
         "__Secure-3PAPISID",
         "__Secure-1PAPISID",
-        "APISID",
     )
 
 fun String.parseTime(): Int? {
