@@ -5,12 +5,11 @@
  * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
  */
 
-package moe.rukamori.archivetune.innertube.models
+package moe.rukamori.archivetune.innertube.models.response
 
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class YouTubeLocale(
-    val gl: String, // geolocation
-    val hl: String, // host language
+data class ImageUploadResponse(
+    val encryptedBlobId: String,
 )
