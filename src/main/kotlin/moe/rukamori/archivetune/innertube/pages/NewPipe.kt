@@ -22,6 +22,7 @@ import org.schabi.newpipe.extractor.exceptions.ParsingException
 import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
 import org.schabi.newpipe.extractor.services.youtube.YoutubeJavaScriptPlayerManager
 import java.io.IOException
+import org.schabi.newpipe.extractor.downloader.CancellableCall
 import java.net.Proxy
 import java.util.concurrent.TimeUnit
 
@@ -39,51 +40,89 @@ private class NewPipeDownloaderImpl(
             .callTimeout(45, TimeUnit.SECONDS)
             .build()
 
-    @Throws(IOException::class, ReCaptchaException::class)
-    override fun execute(request: Request): Response {
+    private fun buildRequest(request: Request): okhttp3.Request {
         val httpMethod = request.httpMethod()
         val url = request.url()
         val headers = request.headers()
         val dataToSend = request.dataToSend()
 
-        val requestBuilder =
-            okhttp3.Request
-                .Builder()
-                .method(httpMethod, dataToSend?.toRequestBody())
-                .url(url)
-
-        var hasUserAgent = false
-        headers.forEach { (headerName, headerValueList) ->
-            if (headerName.equals("User-Agent", ignoreCase = true) && headerValueList.isNotEmpty()) {
-                hasUserAgent = true
-            }
-
-            if (headerValueList.size > 1) {
-                requestBuilder.removeHeader(headerName)
-                headerValueList.forEach { headerValue ->
-                    requestBuilder.addHeader(headerName, headerValue)
+        return okhttp3.Request
+            .Builder()
+            .method(httpMethod, dataToSend?.toRequestBody())
+            .url(url)
+            .also { requestBuilder ->
+                var hasUserAgent = false
+                headers.forEach { (headerName, headerValueList) ->
+                    if (headerName.equals("User-Agent", ignoreCase = true) && headerValueList.isNotEmpty()) {
+                        hasUserAgent = true
+                    }
+                    if (headerValueList.size > 1) {
+                        requestBuilder.removeHeader(headerName)
+                        headerValueList.forEach { headerValue ->
+                            requestBuilder.addHeader(headerName, headerValue)
+                        }
+                    } else if (headerValueList.size == 1) {
+                        requestBuilder.header(headerName, headerValueList[0])
+                    }
                 }
-            } else if (headerValueList.size == 1) {
-                requestBuilder.header(headerName, headerValueList[0])
-            }
-        }
+                if (!hasUserAgent) {
+                    requestBuilder.header("User-Agent", YouTubeClient.USER_AGENT_WEB)
+                }
+            }.build()
+    }
 
-        if (!hasUserAgent) {
-            requestBuilder.header("User-Agent", YouTubeClient.USER_AGENT_WEB)
-        }
-
-        val response = client.newCall(requestBuilder.build()).execute()
-
+    private fun processResponse(response: okhttp3.Response, url: String): Response {
         if (response.code == 429) {
             response.close()
             throw ReCaptchaException("reCaptcha Challenge requested", url)
         }
-
-        val responseBodyToReturn = response.body.string()
+        val responseBodyStr = response.body.string()
+        val rawBytes = responseBodyStr.toByteArray()
         val latestUrl = response.request.url.toString()
-        return Response(response.code, response.message, response.headers.toMultimap(), responseBodyToReturn, latestUrl)
+        return Response(
+            response.code,
+            response.message,
+            response.headers.toMultimap(),
+            responseBodyStr,
+            rawBytes,
+            latestUrl,
+        )
     }
 
+    @Throws(IOException::class, ReCaptchaException::class)
+    override fun execute(request: Request): Response {
+        val url = request.url()
+        val call = client.newCall(buildRequest(request))
+        val response = call.execute()
+        return processResponse(response, url)
+    }
+
+    @Throws(IOException::class, ReCaptchaException::class)
+    override fun executeAsync(
+        request: Request,
+        callback: Downloader.AsyncCallback?,
+    ): CancellableCall {
+        val url = request.url()
+        val call = client.newCall(buildRequest(request))
+        val cancellable = CancellableCall(call)
+        call.enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: IOException) {
+                callback?.onError(e)
+                cancellable.setFinished()
+            }
+
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                try {
+                    val result = processResponse(response, url)
+                    callback?.onResult(result)
+                } catch (e: Exception) {
+                    callback?.onError(e)
+                }
+                cancellable.setFinished()
+            }
+        })
+        return cancellable
+    }
 }
 
 object NewPipeUtils {
