@@ -16,7 +16,11 @@ dependencies {
     implementation(libs.ktor.client.encoding)
     implementation(libs.brotli)
     implementation(libs.metrolist.extractor)
-    api(libs.innertubex)
+    // innertubex is a KMP library — the JVM variant doesn't exist on JitPack
+    // (only android + common). Since :core is a JVM module, we can't depend
+    // on the Android variant. The dependency is declared in :app instead,
+    // where the Android variant resolves correctly.
+    // api(libs.innertubex)  // TODO: move facade here once JVM target is available
     implementation(libs.re2j)
     implementation(libs.rhino)
     testImplementation(libs.junit)
