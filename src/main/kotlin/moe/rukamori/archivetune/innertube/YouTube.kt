@@ -1,29 +1,5 @@
 package moe.rukamori.archivetune.innertube
 
-<<<<<<< HEAD
-=======
-import io.ktor.client.call.body
-import io.ktor.client.plugins.ClientRequestException
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpStatusCode
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonPrimitive
-import moe.rukamori.archivetune.innertube.models.AccountChannel
->>>>>>> 7f5da59f876e65a1ead52667559b187270fceab0
 import moe.rukamori.archivetune.innertube.models.AccountInfo
 import moe.rukamori.archivetune.innertube.models.AlbumItem
 import moe.rukamori.archivetune.innertube.models.Artist
@@ -94,7 +70,6 @@ import moe.rukamori.archivetune.innertube.pages.SearchResult
 import moe.rukamori.archivetune.innertube.pages.SearchSuggestionPage
 import moe.rukamori.archivetune.innertube.pages.SearchSummary
 import moe.rukamori.archivetune.innertube.pages.SearchSummaryPage
-<<<<<<< HEAD
 import moe.rukamori.archivetune.innertubex.models.YouTubeClient.Companion.WEB
 import moe.rukamori.archivetune.innertubex.models.YouTubeClient.Companion.WEB_REMIX
 import io.ktor.client.call.body
@@ -106,12 +81,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import timber.log.Timber
-=======
-import okhttp3.Dns
-import okhttp3.HttpUrl.Companion.toHttpUrl
-import okhttp3.OkHttpClient
-import okhttp3.dnsoverhttps.DnsOverHttps
->>>>>>> 7f5da59f876e65a1ead52667559b187270fceab0
 import java.net.Proxy
 import kotlin.random.Random
 
@@ -120,16 +89,6 @@ import kotlin.random.Random
  * Modified from [ViMusic](https://github.com/vfsfitvnm/ViMusic)
  */
 object YouTube {
-<<<<<<< HEAD
-=======
-    private const val BROWSE_ID_EXPLORE = "FEmusic_explore"
-    private const val BROWSE_ID_NEW_RELEASE_ALBUMS = "FEmusic_new_releases_albums"
-    private const val BROWSE_ID_NEW_RELEASES = "FEmusic_new_releases"
-    private const val BROWSE_ID_MOODS_AND_GENRES = "FEmusic_moods_and_genres"
-    private const val PLAYLIST_EDIT_STATUS_SUCCEEDED = "STATUS_SUCCEEDED"
-    private val playlistCoverResponseJson = Json { ignoreUnknownKeys = true }
-
->>>>>>> 7f5da59f876e65a1ead52667559b187270fceab0
     private val innerTube = InnerTube()
     private const val ENABLE_NEWPIPE_STREAM_INFO_EXTRACTOR = false
 
@@ -156,36 +115,7 @@ object YouTube {
     var cookie: String?
         get() = innerTube.cookie
         set(value) {
-<<<<<<< HEAD
             innerTube.cookie = value
-=======
-            authState = authState.copy(cookie = value)
-        }
-    var poToken: String?
-        get() = authState.poToken
-        set(value) {
-            authState = authState.copy(poToken = value)
-        }
-    var webClientPoTokenEnabled: Boolean
-        get() = authState.webClientPoTokenEnabled
-        set(value) {
-            authState = authState.copy(webClientPoTokenEnabled = value)
-        }
-    var poTokenGvs: String?
-        get() = authState.poTokenGvs ?: authState.poTokenGvsSession
-        set(value) {
-            authState =
-                authState.copy(
-                    poTokenGvs = null,
-                    poTokenGvsSession = value,
-                    poTokenGvsVideoId = null,
-                )
-        }
-    var poTokenPlayer: String?
-        get() = authState.poTokenPlayer
-        set(value) {
-            authState = authState.copy(poTokenPlayer = value)
->>>>>>> 7f5da59f876e65a1ead52667559b187270fceab0
         }
     var proxy: Proxy?
         get() = innerTube.proxy
@@ -204,54 +134,6 @@ object YouTube {
             innerTube.useLoginForBrowse = value
         }
 
-<<<<<<< HEAD
-=======
-    fun currentPlaybackAuthState(): PlaybackAuthState = authState
-
-    fun createDnsOverHttps(url: String): Dns {
-        val bootstrapClient = OkHttpClient.Builder().build()
-        return DnsOverHttps
-            .Builder()
-            .client(bootstrapClient)
-            .url(url.toHttpUrl())
-            .build()
-    }
-
-    private fun resolvePlayerPoToken(
-        client: YouTubeClient,
-        explicitPoToken: String?,
-        videoId: String,
-        authState: PlaybackAuthState,
-    ): String? =
-        authState.resolvePlayerPoToken(
-            client = client,
-            explicitPoToken = explicitPoToken,
-            videoId = videoId,
-        )
-
-    fun hasLoginCookie(): Boolean = authState.hasLoginCookie
-
-    fun hasPlaybackLoginContext(): Boolean = authState.hasPlaybackLoginContext
-
-    internal fun resolveGvsPoToken(
-        videoId: String? = null,
-        authState: PlaybackAuthState = currentPlaybackAuthState(),
-    ): String? = authState.resolveGvsPoToken(videoId = videoId)
-
-    internal fun appendGvsPoToken(
-        url: String,
-        client: YouTubeClient? = null,
-        videoId: String? = null,
-        authState: PlaybackAuthState = currentPlaybackAuthState(),
-    ): String {
-        val token = authState.resolveGvsPoToken(client = client, videoId = videoId) ?: return url
-        if (url.contains("pot=")) return url
-
-        val separator = if (url.contains("?")) "&" else "?"
-        return "$url${separator}pot=$token"
-    }
-
->>>>>>> 7f5da59f876e65a1ead52667559b187270fceab0
     suspend fun searchSuggestions(query: String): Result<SearchSuggestions> =
         runCatching {
             val response = innerTube.getSearchSuggestions(WEB_REMIX, query).body<GetSearchSuggestionsResponse>()
@@ -1659,14 +1541,6 @@ object YouTube {
             )
         }
 
-    private fun SectionListRenderer.Content.toHomeSection(): HomePage.Section? =
-        musicCarouselShelfRenderer?.let { HomePage.Section.fromMusicCarouselShelfRenderer(it) }
-            ?: musicShelfRenderer?.let { HomePage.Section.fromMusicShelfRenderer(it) }
-            ?: musicCardShelfRenderer?.let { HomePage.Section.fromMusicCardShelfRenderer(it) }
-            ?: itemSectionRenderer?.contents.orEmpty().firstNotNullOfOrNull { content ->
-                content.musicShelfRenderer?.let { HomePage.Section.fromMusicShelfRenderer(it) }
-            }
-
     suspend fun home(
         continuation: String? = null,
         params: String? = null,
@@ -1701,18 +1575,11 @@ object YouTube {
             val carousels = sectionListRender?.contents?.mapNotNull { it.musicCarouselShelfRenderer } ?: emptyList()
             Timber.d("home() carousels count: ${carousels.size}")
             val sections =
-<<<<<<< HEAD
                 carousels
                     .mapNotNull {
                         HomePage.Section.fromMusicCarouselShelfRenderer(it)
                     }.toMutableList()
             Timber.d("home() sections parsed: ${sections.size}")
-=======
-                sectionListRender
-                    ?.contents!!
-                    .mapNotNull { it.toHomeSection() }
-                    .toMutableList()
->>>>>>> 7f5da59f876e65a1ead52667559b187270fceab0
             val chips =
                 sectionListRender
                     ?.header
@@ -1737,45 +1604,17 @@ object YouTube {
                 response.continuationContents
                     ?.sectionListContinuation
                     ?.contents
-<<<<<<< HEAD
                     ?.mapNotNull { it.musicCarouselShelfRenderer }
                     ?.mapNotNull {
                         HomePage.Section.fromMusicCarouselShelfRenderer(it)
                     }.orEmpty(),
                 continuation,
-=======
-                    ?.mapNotNull { it.toHomeSection() }
-                    .orEmpty()
-            val nextContinuation =
-                if (sections.isEmpty()) {
-                    null
-                } else {
-                    response.continuationContents
-                        ?.sectionListContinuation
-                        ?.continuations
-                        ?.getContinuation()
-                }
-            HomePage(
-                chips = null,
-                sections = sections,
-                continuation = nextContinuation,
->>>>>>> 7f5da59f876e65a1ead52667559b187270fceab0
             )
         }
 
-    suspend fun explore(useAccountContext: Boolean = true): Result<ExplorePage> =
+    suspend fun explore(): Result<ExplorePage> =
         runCatching {
-<<<<<<< HEAD
             val response = innerTube.browse(WEB_REMIX, browseId = "FEmusic_explore").body<BrowseResponse>()
-=======
-            val response =
-                innerTube
-                    .browse(
-                        client = WEB_REMIX,
-                        browseId = BROWSE_ID_EXPLORE,
-                        useAccountContext = useAccountContext,
-                    ).body<BrowseResponse>()
->>>>>>> 7f5da59f876e65a1ead52667559b187270fceab0
             ExplorePage(
                 newReleaseAlbums =
                     response.contents
@@ -1830,44 +1669,8 @@ object YouTube {
 
     suspend fun newReleaseAlbums(): Result<List<AlbumItem>> =
         runCatching {
-<<<<<<< HEAD
             val response = innerTube.browse(WEB_REMIX, browseId = "FEmusic_new_releases_albums").body<BrowseResponse>()
             response.contents
-=======
-            newReleaseAlbumsFromBrowsePage(BROWSE_ID_NEW_RELEASE_ALBUMS)
-                .takeIf { it.isNotEmpty() }
-                ?.let { return@runCatching it }
-
-            newReleaseAlbumsFromBrowsePage(BROWSE_ID_NEW_RELEASES)
-                .takeIf { it.isNotEmpty() }
-                ?.let { return@runCatching it }
-
-            explore(useAccountContext = false).getOrThrow().newReleaseAlbums
-        }
-
-    private suspend fun newReleaseAlbumsFromBrowsePage(
-        browseId: String,
-    ): List<AlbumItem> =
-        try {
-            val response =
-                innerTube
-                    .browse(
-                        client = WEB_REMIX,
-                        browseId = browseId,
-                        useAccountContext = false,
-                    ).body<BrowseResponse>()
-            response.newReleaseAlbumItems()
-        } catch (throwable: Throwable) {
-            if (throwable is CancellationException || !throwable.isBrowsePageUnavailable()) {
-                throw throwable
-            }
-            emptyList()
-        }
-
-    private fun BrowseResponse.newReleaseAlbumItems(): List<AlbumItem> {
-        val contents =
-            this.contents
->>>>>>> 7f5da59f876e65a1ead52667559b187270fceab0
                 ?.singleColumnBrowseResultsRenderer
                 ?.tabs
                 ?.firstOrNull()
@@ -3265,29 +3068,8 @@ object YouTube {
         signatureTimestamp: Int? = null,
         poToken: String? = null,
     ): Result<PlayerResponse> =
-<<<<<<< HEAD
         runCatching {
             innerTube.player(client, videoId, playlistId, signatureTimestamp, poToken).body<PlayerResponse>()
-=======
-        try {
-            val resolvedPoToken = resolvePlayerPoToken(client, poToken, videoId, authState)
-            Result.success(
-                innerTube
-                    .player(
-                        client = client,
-                        videoId = videoId,
-                        playlistId = playlistId,
-                        signatureTimestamp = signatureTimestamp,
-                        poToken = resolvedPoToken,
-                        setLogin = setLogin,
-                        authState = authState,
-                    ).body<PlayerResponse>(),
-            )
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (failure: Throwable) {
-            Result.failure(failure)
->>>>>>> 7f5da59f876e65a1ead52667559b187270fceab0
         }
 
     suspend fun registerPlayback(
@@ -3514,19 +3296,9 @@ object YouTube {
                 }
         }
 
-    suspend fun transcript(
-        videoId: String,
-        authState: PlaybackAuthState = currentPlaybackAuthState(),
-    ): Result<String> =
+    suspend fun transcript(videoId: String): Result<String> =
         runCatching {
-            val response =
-                innerTube
-                    .getTranscript(
-                        client = WEB_REMIX,
-                        videoId = videoId,
-                        authState = authState,
-                        poToken = authState.resolveSubsPoToken(WEB_REMIX, videoId),
-                    ).body<GetTranscriptResponse>()
+            val response = innerTube.getTranscript(WEB, videoId).body<GetTranscriptResponse>()
             response.actions
                 ?.firstOrNull()
                 ?.updateEngagementPanelAction
@@ -3617,7 +3389,6 @@ object YouTube {
                 song.libraryRemoveToken
                     ?: throw Exception("Remove from library token not available")
 
-<<<<<<< HEAD
             feedback(listOf(removeToken)).getOrThrow()
         }
 
@@ -3636,63 +3407,6 @@ object YouTube {
                 removeSongFromLibrary(videoId).getOrThrow()
             }
         }
-=======
-    private fun JsonElement.findDelegationValue(): String? {
-        val dataSyncKeys =
-            setOf(
-                "datasyncId",
-                "dataSyncId",
-                "datasyncIdToken",
-            )
-        val directKeys =
-            setOf(
-                "onBehalfOfUser",
-                "obfuscatedSelectedGaiaId",
-                "obfuscatedGaiaId",
-                "accountId",
-                "delegatedSessionId",
-            )
-        val fallbackKeys =
-            setOf(
-                "selectedSerializedDelegationContext",
-                "serializedDelegationContext",
-            )
-        return findStringValue(dataSyncKeys) ?: findStringValue(directKeys) ?: findStringValue(fallbackKeys)
-    }
-
-    private fun JsonElement.findStringValue(keys: Set<String>): String? =
-        when (this) {
-            is JsonObject -> {
-                keys.firstNotNullOfOrNull { key ->
-                    this[key]
-                        ?.jsonPrimitiveOrNull()
-                        ?.contentOrNull
-                        ?.trim()
-                        ?.takeIf(String::isNotBlank)
-                } ?: values.firstNotNullOfOrNull { it.findStringValue(keys) }
-            }
-
-            is kotlinx.serialization.json.JsonArray -> {
-                firstNotNullOfOrNull { it.findStringValue(keys) }
-            }
-
-            else -> {
-                null
-            }
-        }
-
-    private fun JsonObject.booleanValue(key: String): Boolean? = this[key]?.jsonPrimitiveOrNull()?.contentOrNull?.toBooleanStrictOrNull()
-
-    private fun JsonElement?.jsonObjectOrNull(): JsonObject? = this as? JsonObject
-
-    private fun JsonElement?.jsonArrayOrNull(): kotlinx.serialization.json.JsonArray? = this as? kotlinx.serialization.json.JsonArray
-
-    private fun JsonElement?.jsonPrimitiveOrNull(): JsonPrimitive? = this as? JsonPrimitive
-
-    private fun String.normalizeAccountChannelDataSyncId(): String? {
-        return PlaybackAuthState(dataSyncId = this).normalized().dataSyncId
-    }
->>>>>>> 7f5da59f876e65a1ead52667559b187270fceab0
 
     suspend fun getMediaInfo(videoId: String): Result<MediaInfo> =
         runCatching {
