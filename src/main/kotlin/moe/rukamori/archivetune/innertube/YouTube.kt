@@ -211,6 +211,40 @@ object YouTube {
             innerTube.useLoginForBrowse = value
         }
 
+    /**
+     * Region spoofer active flag — retained as a no-op stub for fork
+     * compatibility. Upstream rukamori/ArchiveTune removed this in commit
+     * 6694054 ('docs(innertube): removed IP rotation APIs and selector
+     * plumbing'), but 4nx3b/ArchiveTune's InternetSettings.kt still
+     * references it. The flag has no effect on playback — region spoofing
+     * is now done purely via [YouTube.locale] overrides.
+     */
+    var regionSpooferActive: Boolean = false
+
+    /**
+     * IP rotation active count — stub that always reports zero. Upstream
+     * removed the rotating-proxy feature, but 4nx3b/ArchiveTune's
+     * InternetSettings.kt still collects this state. Setting is preserved
+     * as a no-op preference.
+     */
+    private val _ipRotationActiveCount = MutableStateFlow(0)
+    val ipRotationActiveCount: StateFlow<Int> = _ipRotationActiveCount.asStateFlow()
+
+    /** No-op stub — IP rotation was removed by upstream. */
+    suspend fun enableIpRotation() {
+        // Intentional no-op (fork compatibility stub)
+    }
+
+    /** No-op stub — IP rotation was removed by upstream. */
+    fun disableIpRotation() {
+        // Intentional no-op (fork compatibility stub)
+    }
+
+    /** No-op stub — IP rotation was removed by upstream. */
+    suspend fun refreshIpRotation() {
+        // Intentional no-op (fork compatibility stub)
+    }
+
     fun currentPlaybackAuthState(): PlaybackAuthState = authState
 
     fun createDnsOverHttps(url: String): Dns {
