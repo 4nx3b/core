@@ -28,7 +28,7 @@
 
 ## Overview
 
-This is the standalone InnerTube API core extracted from [ArchiveTune](https://github.com/rukamori/ArchiveTune). It provides a complete Ktor-based HTTP client for interacting with YouTube Music's InnerTube API, including request signing, response parsing, proxy rotation, and playback authentication.
+This is the standalone InnerTube API core extracted from [ArchiveTune](https://github.com/rukamori/ArchiveTune). It provides a complete Ktor-based HTTP client for interacting with YouTube Music's InnerTube API, including request signing, response parsing, fixed-proxy support, and playback authentication.
 
 ## Features
 
@@ -36,7 +36,7 @@ This is the standalone InnerTube API core extracted from [ArchiveTune](https://g
 - **Ktor Client** — built on Ktor with OkHttp engine, content negotiation, brotli encoding, and DNS-over-HTTPS
 - **Response Parsing** — complete set of Kotlinx Serialization models for InnerTube responses
 - **Page Parsers** — domain-level parsers that transform raw JSON into typed page objects
-- **Proxy Rotation** — built-in rotating proxy selector with cooldown tracking for failed proxies
+- **Proxy Support** — optional fixed HTTP or SOCKS proxy configuration
 - **Playback Auth** — PO token management for authenticated playback
 - **NewPipe Integration** — optional cipher deobfuscation and stream URL extraction via NewPipe Extractor
 
@@ -67,11 +67,6 @@ flowchart TB
             PARSERS["Page parsers<br/>(AlbumPage, ArtistPage, SearchPage, ...)"]
         end
 
-        subgraph Proxy["Proxy"]
-            RPS["RotatingProxySelector<br/>IP rotation with cooldown"]
-            RPC["RotatingProxyClient<br/>Proxy list fetcher"]
-        end
-
         AUTH["PlaybackAuthState<br/>PO token & cookie management"]
         UTILS["Utils"]
     end
@@ -90,7 +85,6 @@ flowchart TB
     IT --> Models
     IT --> Pages
     IT --> AUTH
-    IT --> Proxy
     IT --> UTILS
     IT -->|HTTP / Ktor| YTM
     IT -->|Stream decryption| NEWPIPE

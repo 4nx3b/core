@@ -22,6 +22,5 @@ dependencies {
     // where the Android variant resolves correctly.
     // api(libs.innertubex)
     implementation(libs.re2j)
-    implementation(libs.rhino)
     testImplementation(libs.junit)
 }
