@@ -12,8 +12,22 @@ import okhttp3.Response
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 
+/**
+ * Network gatekeeper used by upstream rukamori/ArchiveTune to block unofficial
+ * builds from accessing InnerTube endpoints.
+ *
+ * FORK NOTE: 4nx3b/ArchiveTune removed the GatekeeperRepository that would
+ * normally call [setConnectionBlocked]`(false)` after a successful remote
+ * verification (commit 89022ca89 "remove remote build gatekeeper"). The
+ * upstream default of `connectionBlocked = true` would therefore block ALL
+ * YouTube playback in our fork.
+ *
+ * We default to `false` here so the interceptor becomes a no-op pass-through.
+ * The [setConnectionBlocked] entrypoint is kept for source compatibility —
+ * it just never gets called by the fork.
+ */
 object NetworkGatekeeper : Interceptor {
-    private val connectionBlocked = AtomicBoolean(true)
+    private val connectionBlocked = AtomicBoolean(false)
 
     val isConnectionBlocked: Boolean
         get() = connectionBlocked.get()
