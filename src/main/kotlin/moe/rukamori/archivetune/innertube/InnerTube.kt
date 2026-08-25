@@ -28,6 +28,7 @@ import moe.rukamori.archivetune.innertube.models.YouTubeClient
 import moe.rukamori.archivetune.innertube.models.YouTubeLocale
 import moe.rukamori.archivetune.innertube.models.body.*
 import moe.rukamori.archivetune.innertube.models.response.NextResponse
+import moe.rukamori.archivetune.innertube.proxy.RotatingProxySelector
 import moe.rukamori.archivetune.innertube.utils.sha1
 import moe.rukamori.archivetune.innertube.utils.youtubeLoginCookieValue
 import okhttp3.Dns
@@ -112,6 +113,18 @@ class InnerTube {
             httpClient = createClient()
         }
 
+    /**
+     * Rotating-proxy selector installed by [moe.rukamori.archivetune.innertube.YouTube.enableIpRotation].
+     * Non-null means every InnerTube request goes out through the next live proxy in the pool.
+     * Setting it rebuilds the HTTP client, because OkHttp's proxy selector is fixed at build time.
+     */
+    internal var proxySelector: RotatingProxySelector? = null
+        set(value) {
+            field = value
+            httpClient.close()
+            httpClient = createClient()
+        }
+
     var useLoginForBrowse: Boolean = false
 
     fun currentAuthState(): PlaybackAuthState = authState
@@ -150,7 +163,12 @@ class InnerTube {
                 config {
                     addInterceptor(NetworkGatekeeper)
                     dns(this@InnerTube.dns)
-                    if (this@InnerTube.proxy == null) {
+                    val sel = this@InnerTube.proxySelector
+                    if (sel != null) {
+                        // The selector picks (and rotates) the proxy per request, so it must take
+                        // precedence over the single static `proxy` below.
+                        proxySelector(sel)
+                    } else if (this@InnerTube.proxy == null) {
                         proxy(Proxy.NO_PROXY)
                     } else if (this@InnerTube.proxy != null && !proxyUsername.isNullOrBlank() && !proxyPassword.isNullOrBlank()) {
                         proxyAuthenticator { _, response ->
@@ -162,7 +180,7 @@ class InnerTube {
                         }
                     }
                 }
-                if (this@InnerTube.proxy != null) {
+                if (this@InnerTube.proxySelector == null && this@InnerTube.proxy != null) {
                     proxy = this@InnerTube.proxy
                 }
             }
@@ -243,6 +261,9 @@ class InnerTube {
         factor: Double = 2.0,
         block: suspend () -> T,
     ): T {
+        // With rotation on, allow one attempt per live proxy (capped) so a transient failure
+        // moves to the next IP instead of giving up after the default attempt budget.
+        val resolvedMaxAttempts = proxySelector?.activeCount()?.coerceIn(maxAttempts, 6) ?: maxAttempts
         var currentDelay = initialDelay
         var attempt = 0
         while (true) {
@@ -251,7 +272,9 @@ class InnerTube {
             } catch (e: Throwable) {
                 if (e is CancellationException || !e.isTransientNetworkFailure()) throw e
                 attempt++
-                if (attempt >= maxAttempts) throw e
+                proxySelector?.markLastSelectedFailed()
+                proxySelector?.rotate()
+                if (attempt >= resolvedMaxAttempts) throw e
                 delay(currentDelay)
                 currentDelay = (currentDelay * factor).toLong()
             }

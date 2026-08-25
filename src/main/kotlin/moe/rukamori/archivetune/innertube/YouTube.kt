@@ -12,12 +12,14 @@ import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -91,6 +93,7 @@ import moe.rukamori.archivetune.innertube.pages.SearchResult
 import moe.rukamori.archivetune.innertube.pages.SearchSuggestionPage
 import moe.rukamori.archivetune.innertube.pages.SearchSummary
 import moe.rukamori.archivetune.innertube.pages.SearchSummaryPage
+import moe.rukamori.archivetune.innertube.proxy.RotatingProxyClient
 import okhttp3.Dns
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -212,37 +215,82 @@ object YouTube {
         }
 
     /**
-     * Region spoofer active flag — retained as a no-op stub for fork
-     * compatibility. Upstream rukamori/ArchiveTune removed this in commit
-     * 6694054 ('docs(innertube): removed IP rotation APIs and selector
-     * plumbing'), but 4nx3b/ArchiveTune's InternetSettings.kt still
-     * references it. The flag has no effect on playback — region spoofing
-     * is now done purely via [YouTube.locale] overrides.
+     * True while the user has pinned an explicit YouTube Music region (Internet Settings →
+     * YouTube Music region). Set it together with a [locale] `gl` override.
+     *
+     * Why it exists: `context.client.gl` alone does NOT move the personalised, region-sensitive
+     * endpoints (`FEmusic_home`, search, charts, trending, new releases, moods & genres, explore).
+     * For a signed-in user YouTube derives the effective country from the *account* and ignores
+     * `gl`, so the home feed keeps coming back in the account's home country no matter what the
+     * picker says. While this flag is set, those endpoints are sent fully anonymously — no cookie,
+     * no `dataSyncId`, and no `visitorData` in the body or the `X-Goog-Visitor-Id` header — which
+     * makes `gl` authoritative.
+     *
+     * Login-required endpoints (library, playlists, history, likes) are unaffected and keep using
+     * the session; only discovery surfaces go anonymous. The trade-off is deliberate: a pinned
+     * region means "show me that country's catalogue", which cannot coexist with account-level
+     * personalisation.
+     *
+     * Callers must persist the corresponding preference and restore this flag on process start,
+     * otherwise spoofing silently stops working after the first restart.
      */
+    @Volatile
     var regionSpooferActive: Boolean = false
 
     /**
-     * IP rotation active count — stub that always reports zero. Upstream
-     * removed the rotating-proxy feature, but 4nx3b/ArchiveTune's
-     * InternetSettings.kt still collects this state. Setting is preserved
-     * as a no-op preference.
+     * Account context to use for region-sensitive browse/search requests: false while a region is
+     * pinned (see [regionSpooferActive]), true otherwise. Combined with the caller's own
+     * `useAccountContext` so this can only ever *remove* account context, never add it.
      */
+    private val regionSensitiveAccountContext: Boolean
+        get() = !regionSpooferActive
+
+    /**
+     * Rotating free-proxy pool used by Internet Settings → "IP rotation". Fetches a public HTTP
+     * proxy list, validates each candidate against `music.youtube.com/generate_204`, and keeps the
+     * ones that answer; [InnerTube] then routes every InnerTube request through the pool, advancing
+     * to the next live proxy on each transient failure.
+     */
+    val rotatingProxyClient = RotatingProxyClient()
+
     private val _ipRotationActiveCount = MutableStateFlow(0)
+
+    /** Number of proxies currently live in the pool. 0 means rotation is off or nothing validated. */
     val ipRotationActiveCount: StateFlow<Int> = _ipRotationActiveCount.asStateFlow()
 
-    /** No-op stub — IP rotation was removed by upstream. */
+    /**
+     * Fetches + validates the proxy pool and installs it. Network-bound (it probes every candidate),
+     * so callers should show progress. Leaves rotation disabled if nothing validated, in which case
+     * [ipRotationActiveCount] stays 0 and requests keep going out directly.
+     */
     suspend fun enableIpRotation() {
-        // Intentional no-op (fork compatibility stub)
+        withContext(Dispatchers.IO) {
+            rotatingProxyClient.fetchAndLoad()
+            innerTube.proxySelector = rotatingProxyClient.selector()
+            _ipRotationActiveCount.value = rotatingProxyClient.activeCount()
+        }
     }
 
-    /** No-op stub — IP rotation was removed by upstream. */
-    fun disableIpRotation() {
-        // Intentional no-op (fork compatibility stub)
-    }
-
-    /** No-op stub — IP rotation was removed by upstream. */
+    /**
+     * Advances to the next proxy, re-fetching the whole pool first if it has been whittled down to
+     * one (or zero) live entries.
+     */
     suspend fun refreshIpRotation() {
-        // Intentional no-op (fork compatibility stub)
+        withContext(Dispatchers.IO) {
+            if (rotatingProxyClient.activeCount() <= 1) {
+                rotatingProxyClient.fetchAndLoad()
+            } else {
+                rotatingProxyClient.rotate()
+            }
+            innerTube.proxySelector = rotatingProxyClient.selector()
+            _ipRotationActiveCount.value = rotatingProxyClient.activeCount()
+        }
+    }
+
+    /** Uninstalls the pool so requests go out directly (or via the static proxy, if configured). */
+    fun disableIpRotation() {
+        innerTube.proxySelector = null
+        _ipRotationActiveCount.value = 0
     }
 
     fun currentPlaybackAuthState(): PlaybackAuthState = authState
@@ -320,7 +368,14 @@ object YouTube {
 
     suspend fun searchSummary(query: String): Result<SearchSummaryPage> =
         runCatching {
-            val response = innerTube.search(WEB_REMIX, query).body<SearchResponse>()
+            val response =
+                innerTube
+                    .search(
+                        WEB_REMIX,
+                        query,
+                        // Region-sensitive: the summary shelves are ranked per-country.
+                        useAccountContext = regionSensitiveAccountContext,
+                    ).body<SearchResponse>()
             val contents =
                 response.contents
                     ?.tabbedSearchResultsRenderer
@@ -386,7 +441,7 @@ object YouTube {
                         client = WEB_REMIX,
                         query = query,
                         params = filter.value,
-                        useAccountContext = useAccountContext,
+                        useAccountContext = useAccountContext && regionSensitiveAccountContext,
                     ).body<SearchResponse>()
             val contents =
                 response.contents
@@ -440,7 +495,7 @@ object YouTube {
                     .search(
                         client = WEB_REMIX,
                         continuation = continuation,
-                        useAccountContext = useAccountContext,
+                        useAccountContext = useAccountContext && regionSensitiveAccountContext,
                     ).body<SearchResponse>()
             val continuationPage = response.continuationContents?.musicShelfContinuation
             val items =
@@ -1050,7 +1105,17 @@ object YouTube {
                 return@runCatching homeContinuation(continuation).getOrThrow()
             }
 
-            val response = innerTube.browse(WEB_REMIX, browseId = "FEmusic_home", params = params, setLogin = true).body<BrowseResponse>()
+            val response =
+                innerTube
+                    .browse(
+                        WEB_REMIX,
+                        browseId = "FEmusic_home",
+                        params = params,
+                        setLogin = true,
+                        // A pinned region has to win over the account's own country here, or the
+                        // home feed keeps coming back from the account's home country.
+                        useAccountContext = regionSensitiveAccountContext,
+                    ).body<BrowseResponse>()
             val continuation =
                 response.contents
                     ?.singleColumnBrowseResultsRenderer
@@ -1115,7 +1180,7 @@ object YouTube {
                     .browse(
                         client = WEB_REMIX,
                         browseId = BROWSE_ID_EXPLORE,
-                        useAccountContext = useAccountContext,
+                        useAccountContext = useAccountContext && regionSensitiveAccountContext,
                     ).body<BrowseResponse>()
             ExplorePage(
                 newReleaseAlbums =
@@ -1286,7 +1351,13 @@ object YouTube {
 
     suspend fun moodAndGenres(): Result<List<MoodAndGenres>> =
         runCatching {
-            val response = innerTube.browse(WEB_REMIX, browseId = BROWSE_ID_MOODS_AND_GENRES).body<BrowseResponse>()
+            val response =
+                innerTube
+                    .browse(
+                        WEB_REMIX,
+                        browseId = BROWSE_ID_MOODS_AND_GENRES,
+                        useAccountContext = regionSensitiveAccountContext,
+                    ).body<BrowseResponse>()
             response.contents
                 ?.singleColumnBrowseResultsRenderer
                 ?.tabs
@@ -1572,6 +1643,7 @@ object YouTube {
                         browseId = "FEmusic_charts",
                         params = "ggMGCgQIgAQ%3D",
                         continuation = continuation,
+                        useAccountContext = regionSensitiveAccountContext,
                     ).body<BrowseResponse>()
 
             val sections = mutableListOf<ChartsPage.ChartSection>()
