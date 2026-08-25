@@ -23,11 +23,29 @@ import java.util.concurrent.TimeUnit
 class RotatingProxyClient {
     private val selector = RotatingProxySelector()
 
+    private val client: OkHttpClient =
+        OkHttpClient
+            .Builder()
+            .proxySelector(selector)
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(false)
+            .build()
+
     internal fun selector(): RotatingProxySelector = selector
 
     fun activeCount(): Int = selector.activeCount()
 
     fun rotate() = selector.rotate()
+
+    fun loadProxies(configs: List<ProxyConfig>) = selector.loadProxies(configs)
+
+    fun get(url: String): String {
+        val request = Request.Builder().url(url).build()
+        return client.newCall(request).execute().use { response ->
+            response.body.string()
+        }
+    }
 
     suspend fun fetchAndLoad() {
         val configs = withContext(Dispatchers.IO) { fetchProxyConfigs() }

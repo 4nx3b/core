@@ -108,7 +108,6 @@ import kotlin.random.Random
 object YouTube {
     private const val BROWSE_ID_EXPLORE = "FEmusic_explore"
     private const val BROWSE_ID_NEW_RELEASE_ALBUMS = "FEmusic_new_releases_albums"
-    private const val BROWSE_ID_NEW_RELEASES = "FEmusic_new_releases"
     private const val BROWSE_ID_MOODS_AND_GENRES = "FEmusic_moods_and_genres"
     private const val PLAYLIST_EDIT_STATUS_SUCCEEDED = "STATUS_SUCCEEDED"
     private val playlistCoverResponseJson = Json { ignoreUnknownKeys = true }
@@ -169,14 +168,9 @@ object YouTube {
             authState = authState.copy(webClientPoTokenEnabled = value)
         }
     var poTokenGvs: String?
-        get() = authState.poTokenGvs ?: authState.poTokenGvsSession
+        get() = authState.poTokenGvs
         set(value) {
-            authState =
-                authState.copy(
-                    poTokenGvs = null,
-                    poTokenGvsSession = value,
-                    poTokenGvsVideoId = null,
-                )
+            authState = authState.copy(poTokenGvs = value)
         }
     var poTokenPlayer: String?
         get() = authState.poTokenPlayer
@@ -307,36 +301,16 @@ object YouTube {
     private fun resolvePlayerPoToken(
         client: YouTubeClient,
         explicitPoToken: String?,
-        videoId: String,
         authState: PlaybackAuthState,
     ): String? =
         authState.resolvePlayerPoToken(
             client = client,
             explicitPoToken = explicitPoToken,
-            videoId = videoId,
         )
 
     fun hasLoginCookie(): Boolean = authState.hasLoginCookie
 
     fun hasPlaybackLoginContext(): Boolean = authState.hasPlaybackLoginContext
-
-    internal fun resolveGvsPoToken(
-        videoId: String? = null,
-        authState: PlaybackAuthState = currentPlaybackAuthState(),
-    ): String? = authState.resolveGvsPoToken(videoId = videoId)
-
-    internal fun appendGvsPoToken(
-        url: String,
-        client: YouTubeClient? = null,
-        videoId: String? = null,
-        authState: PlaybackAuthState = currentPlaybackAuthState(),
-    ): String {
-        val token = authState.resolveGvsPoToken(client = client, videoId = videoId) ?: return url
-        if (url.contains("pot=")) return url
-
-        val separator = if (url.contains("?")) "&" else "?"
-        return "$url${separator}pot=$token"
-    }
 
     suspend fun searchSuggestions(query: String): Result<SearchSuggestions> =
         runCatching {
@@ -617,7 +591,10 @@ object YouTube {
         album: AlbumItem? = null,
     ): Result<List<SongItem>> =
         runCatching {
-            var response = innerTube.browse(WEB_REMIX, "VL$playlistId").body<BrowseResponse>()
+            // Same "VL" double-prefix guard as #playlist — community/radio-style IDs can
+            // already carry the prefix.
+            val normalizedPlaylistId = playlistId.removePrefix("VL").removePrefix("VL")
+            var response = innerTube.browse(WEB_REMIX, "VL$normalizedPlaylistId").body<BrowseResponse>()
             val songs = linkedMapOf<String, SongItem>()
 
             fun appendSongs(
@@ -938,11 +915,20 @@ object YouTube {
 
     suspend fun playlist(playlistId: String): Result<PlaylistPage> =
         runCatching {
+            // InnerTube's browse endpoint expects the playlist browse ID to be prefixed with
+            // "VL" — but community-playlist / radio-style IDs surfaced by YouTube Music search
+            // results can already start with "VL" (or "RDCL", "OLAK5uy", etc.). Unconditionally
+            // prepending "VL" produced "VLVL..." browse IDs that returned a private-playlist
+            // response, which we surfaced as a thrown IllegalStateException("PLAYLIST_PRIVATE")
+            // — and that exception, propagated through reportException(), was the most common
+            // cause of the "community playlists crash on open" bug. Strip any existing "VL"
+            // prefix first, then add exactly one.
+            val normalizedPlaylistId = playlistId.removePrefix("VL").removePrefix("VL")
             val response =
                 innerTube
                     .browse(
                         client = WEB_REMIX,
-                        browseId = "VL$playlistId",
+                        browseId = "VL$normalizedPlaylistId",
                         setLogin = true,
                     ).body<BrowseResponse>()
             val primarySection =
@@ -1088,14 +1074,6 @@ object YouTube {
             playlistContinuationPageFromResponse(response, playlistId)
         }
 
-    private fun SectionListRenderer.Content.toHomeSection(): HomePage.Section? =
-        musicCarouselShelfRenderer?.let { HomePage.Section.fromMusicCarouselShelfRenderer(it) }
-            ?: musicShelfRenderer?.let { HomePage.Section.fromMusicShelfRenderer(it) }
-            ?: musicCardShelfRenderer?.let { HomePage.Section.fromMusicCardShelfRenderer(it) }
-            ?: itemSectionRenderer?.contents.orEmpty().firstNotNullOfOrNull { content ->
-                content.musicShelfRenderer?.let { HomePage.Section.fromMusicShelfRenderer(it) }
-            }
-
     suspend fun home(
         continuation: String? = null,
         params: String? = null,
@@ -1137,8 +1115,10 @@ object YouTube {
             val sections =
                 sectionListRender
                     ?.contents!!
-                    .mapNotNull { it.toHomeSection() }
-                    .toMutableList()
+                    .mapNotNull { it.musicCarouselShelfRenderer }
+                    .mapNotNull {
+                        HomePage.Section.fromMusicCarouselShelfRenderer(it)
+                    }.toMutableList()
             val chips =
                 sectionListRender.header
                     ?.chipCloudRenderer
@@ -1155,8 +1135,10 @@ object YouTube {
                 response.continuationContents
                     ?.sectionListContinuation
                     ?.contents
-                    ?.mapNotNull { it.toHomeSection() }
-                    .orEmpty()
+                    ?.mapNotNull { it.musicCarouselShelfRenderer }
+                    ?.mapNotNull {
+                        HomePage.Section.fromMusicCarouselShelfRenderer(it)
+                    }.orEmpty()
             val nextContinuation =
                 if (sections.isEmpty()) {
                     null
@@ -1173,14 +1155,14 @@ object YouTube {
             )
         }
 
-    suspend fun explore(useAccountContext: Boolean = true): Result<ExplorePage> =
+    suspend fun explore(): Result<ExplorePage> =
         runCatching {
             val response =
                 innerTube
                     .browse(
                         client = WEB_REMIX,
                         browseId = BROWSE_ID_EXPLORE,
-                        useAccountContext = useAccountContext && regionSensitiveAccountContext,
+                        useAccountContext = regionSensitiveAccountContext,
                     ).body<BrowseResponse>()
             ExplorePage(
                 newReleaseAlbums =
@@ -1236,35 +1218,19 @@ object YouTube {
 
     suspend fun newReleaseAlbums(): Result<List<AlbumItem>> =
         runCatching {
-            newReleaseAlbumsFromBrowsePage(BROWSE_ID_NEW_RELEASE_ALBUMS)
-                .takeIf { it.isNotEmpty() }
-                ?.let { return@runCatching it }
-
-            newReleaseAlbumsFromBrowsePage(BROWSE_ID_NEW_RELEASES)
-                .takeIf { it.isNotEmpty() }
-                ?.let { return@runCatching it }
-
-            explore(useAccountContext = false).getOrThrow().newReleaseAlbums
-        }
-
-    private suspend fun newReleaseAlbumsFromBrowsePage(
-        browseId: String,
-    ): List<AlbumItem> =
-        try {
-            val response =
-                innerTube
-                    .browse(
-                        client = WEB_REMIX,
-                        browseId = browseId,
-                        useAccountContext = false,
-                    ).body<BrowseResponse>()
-            response.newReleaseAlbumItems()
-        } catch (throwable: Throwable) {
-            if (throwable is CancellationException || !throwable.isBrowsePageUnavailable()) {
-                throw throwable
+            try {
+                val directAlbums = newReleaseAlbumsFromBrowsePage()
+                if (directAlbums.isNotEmpty()) return@runCatching directAlbums
+            } catch (throwable: Throwable) {
+                if (!throwable.isBrowsePageUnavailable()) throw throwable
             }
-            emptyList()
+            explore().getOrThrow().newReleaseAlbums
         }
+
+    private suspend fun newReleaseAlbumsFromBrowsePage(): List<AlbumItem> {
+        val response = innerTube.browse(WEB_REMIX, browseId = BROWSE_ID_NEW_RELEASE_ALBUMS).body<BrowseResponse>()
+        return response.newReleaseAlbumItems()
+    }
 
     private fun BrowseResponse.newReleaseAlbumItems(): List<AlbumItem> {
         val contents =
@@ -2203,24 +2169,18 @@ object YouTube {
         setLogin: Boolean = true,
         authState: PlaybackAuthState = currentPlaybackAuthState(),
     ): Result<PlayerResponse> =
-        try {
-            val resolvedPoToken = resolvePlayerPoToken(client, poToken, videoId, authState)
-            Result.success(
-                innerTube
-                    .player(
-                        client = client,
-                        videoId = videoId,
-                        playlistId = playlistId,
-                        signatureTimestamp = signatureTimestamp,
-                        poToken = resolvedPoToken,
-                        setLogin = setLogin,
-                        authState = authState,
-                    ).body<PlayerResponse>(),
-            )
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (failure: Throwable) {
-            Result.failure(failure)
+        runCatching {
+            val resolvedPoToken = resolvePlayerPoToken(client, poToken, authState)
+            innerTube
+                .player(
+                    client = client,
+                    videoId = videoId,
+                    playlistId = playlistId,
+                    signatureTimestamp = signatureTimestamp,
+                    poToken = resolvedPoToken,
+                    setLogin = setLogin,
+                    authState = authState,
+                ).body<PlayerResponse>()
         }
 
     suspend fun registerPlayback(
@@ -2451,19 +2411,9 @@ object YouTube {
                 }
         }
 
-    suspend fun transcript(
-        videoId: String,
-        authState: PlaybackAuthState = currentPlaybackAuthState(),
-    ): Result<String> =
+    suspend fun transcript(videoId: String): Result<String> =
         runCatching {
-            val response =
-                innerTube
-                    .getTranscript(
-                        client = WEB_REMIX,
-                        videoId = videoId,
-                        authState = authState,
-                        poToken = authState.resolveSubsPoToken(WEB_REMIX, videoId),
-                    ).body<GetTranscriptResponse>()
+            val response = innerTube.getTranscript(WEB, videoId).body<GetTranscriptResponse>()
             response.actions
                 ?.firstOrNull()
                 ?.updateEngagementPanelAction
@@ -2644,12 +2594,6 @@ object YouTube {
     }
 
     private fun JsonElement.findDelegationValue(): String? {
-        val dataSyncKeys =
-            setOf(
-                "datasyncId",
-                "dataSyncId",
-                "datasyncIdToken",
-            )
         val directKeys =
             setOf(
                 "onBehalfOfUser",
@@ -2663,7 +2607,7 @@ object YouTube {
                 "selectedSerializedDelegationContext",
                 "serializedDelegationContext",
             )
-        return findStringValue(dataSyncKeys) ?: findStringValue(directKeys) ?: findStringValue(fallbackKeys)
+        return findStringValue(directKeys) ?: findStringValue(fallbackKeys)
     }
 
     private fun JsonElement.findStringValue(keys: Set<String>): String? =
@@ -2696,7 +2640,17 @@ object YouTube {
     private fun JsonElement?.jsonPrimitiveOrNull(): JsonPrimitive? = this as? JsonPrimitive
 
     private fun String.normalizeAccountChannelDataSyncId(): String? {
-        return PlaybackAuthState(dataSyncId = this).normalized().dataSyncId
+        val normalized =
+            trim()
+                .takeIf(String::isNotBlank)
+                ?.let { value ->
+                    value
+                        .takeIf { !it.contains("||") }
+                        ?: value.takeIf { it.endsWith("||") }?.substringBefore("||")
+                        ?: value.substringAfter("||")
+                }?.trim()
+                ?.takeIf(String::isNotBlank)
+        return normalized
     }
 
     suspend fun getMediaInfo(videoId: String): Result<MediaInfo> =

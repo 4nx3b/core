@@ -106,6 +106,13 @@ class InnerTube {
             httpClient = createClient()
         }
 
+    internal var proxySelector: RotatingProxySelector? = null
+        set(value) {
+            field = value
+            httpClient.close()
+            httpClient = createClient()
+        }
+
     var dns: Dns = Dns.SYSTEM
         set(value) {
             field = value
@@ -161,7 +168,6 @@ class InnerTube {
 
             engine {
                 config {
-                    addInterceptor(NetworkGatekeeper)
                     dns(this@InnerTube.dns)
                     val sel = this@InnerTube.proxySelector
                     if (sel != null) {
@@ -216,7 +222,6 @@ class InnerTube {
                     val sapisidHash = sha1("$currentTime $loginCookieValue $requestOrigin")
                     append("Authorization", "SAPISIDHASH ${currentTime}_$sapisidHash")
                     append("X-Goog-AuthUser", "0")
-                    authState.dataSyncId.delegatedSessionIdOrNull()?.let { append("X-Goog-PageId", it) }
                 }
             }
         }
@@ -248,7 +253,6 @@ class InnerTube {
                     val sapisidHash = sha1("$currentTime $loginCookieValue $requestOrigin")
                     append("Authorization", "SAPISIDHASH ${currentTime}_$sapisidHash")
                     append("X-Goog-AuthUser", "0")
-                    authState.dataSyncId.delegatedSessionIdOrNull()?.let { append("X-Goog-PageId", it) }
                 }
             }
         }
@@ -279,13 +283,6 @@ class InnerTube {
                 currentDelay = (currentDelay * factor).toLong()
             }
         }
-    }
-
-    private fun String?.delegatedSessionIdOrNull(): String? {
-        val value = this?.trim()?.takeIf(String::isNotBlank) ?: return null
-        val separatorIndex = value.indexOf("||")
-        if (separatorIndex <= 0 || separatorIndex + 2 >= value.length) return null
-        return value.substring(0, separatorIndex).trim().takeIf(String::isNotBlank)
     }
 
     private fun Throwable.isTransientNetworkFailure(): Boolean {
@@ -388,7 +385,7 @@ class InnerTube {
                                 it.copy(
                                     thirdParty =
                                         Context.ThirdParty(
-                                            embedUrl = "https://www.reddit.com/",
+                                            embedUrl = "https://www.youtube.com/watch?v=$videoId",
                                         ),
                                 )
                             } else {
@@ -459,6 +456,9 @@ class InnerTube {
         useAccountContext: Boolean = true,
     ) = withRetry {
         httpClient.post("browse") {
+            // useAccountContext == false strips every trace of the session (cookie, dataSyncId and
+            // visitorData) so YouTube has nothing to derive a country from but the `gl` in `locale`.
+            // That is what makes the region spoofer actually move the personalised surfaces.
             val shouldUseLogin = useAccountContext && (setLogin || useLoginForBrowse)
             ytClient(
                 client = client,
@@ -541,29 +541,15 @@ class InnerTube {
     suspend fun getTranscript(
         client: YouTubeClient,
         videoId: String,
-        authState: PlaybackAuthState = currentAuthState(),
-        poToken: String? = null,
     ) = withRetry {
         httpClient.post("https://music.youtube.com/youtubei/v1/get_transcript") {
             parameter("key", "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX3")
-            poToken?.let {
-                parameter("pot", it)
-                parameter("potc", "1")
-                parameter("c", client.clientId)
+            headers {
+                append("Content-Type", "application/json")
             }
-            ytClient(
-                client = client,
-                setLogin = authState.hasPlaybackLoginContext,
-                authState = authState,
-            )
             setBody(
                 GetTranscriptBody(
-                    context =
-                        client.toContext(
-                            locale = locale,
-                            visitorData = authState.visitorData,
-                            dataSyncId = if (authState.hasPlaybackLoginContext) authState.dataSyncId else null,
-                        ),
+                    context = client.toContext(locale, null, null),
                     params =
                         Base64.Default.encode(
                             "\n${11.toChar()}$videoId".encodeToByteArray(),
@@ -585,7 +571,7 @@ class InnerTube {
 
     suspend fun accountChannels(client: YouTubeClient) =
         withRetry {
-            httpClient.post(client.requestApiUrl("account/accounts_list")) {
+            httpClient.post("account/accounts_list") {
                 ytClient(client, setLogin = true)
                 setBody(AccountsListBody(client.toContext(locale, visitorData, dataSyncId)))
             }
