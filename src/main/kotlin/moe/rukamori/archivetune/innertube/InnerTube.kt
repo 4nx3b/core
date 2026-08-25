@@ -106,13 +106,6 @@ class InnerTube {
             httpClient = createClient()
         }
 
-    internal var proxySelector: RotatingProxySelector? = null
-        set(value) {
-            field = value
-            httpClient.close()
-            httpClient = createClient()
-        }
-
     var dns: Dns = Dns.SYSTEM
         set(value) {
             field = value
