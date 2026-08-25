@@ -82,6 +82,9 @@ data class YouTubeClient(
         const val API_URL_YOUTUBE_MUSIC = "$ORIGIN_YOUTUBE_MUSIC/youtubei/v1/"
 
         const val ORIGIN_YOUTUBE = "https://www.youtube.com"
+        const val REFERER_YOUTUBE = "$ORIGIN_YOUTUBE/"
+        const val ORIGIN_YOUTUBE_MOBILE = "https://m.youtube.com"
+        const val REFERER_YOUTUBE_MOBILE = "$ORIGIN_YOUTUBE_MOBILE/"
         const val REFERER_YOUTUBE_TV = "$ORIGIN_YOUTUBE/tv"
 
         val WEB =
@@ -134,6 +137,22 @@ data class YouTubeClient(
                 supportsCookieAuthentication = true,
                 loginRequired = true,
                 useSignatureTimestamp = true,
+            )
+
+        /**
+         * Older TVHTML5 build, kept for streams whose player response came back pinned to it.
+         * `clientName` is deliberately "TVHTML5" — only the version is downgraded — which is why
+         * StreamClientUtils tells the two apart by [clientVersion].
+         */
+        val TVHTML5_DOWNGRADED =
+            YouTubeClient(
+                clientName = "TVHTML5",
+                clientVersion = "5.20260707",
+                clientId = "7",
+                userAgent = "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version",
+                friendlyName = "TV (Compatibility)",
+                loginSupported = true,
+                supportsCookieAuthentication = true,
             )
 
         val TVHTML5_SIMPLY =
