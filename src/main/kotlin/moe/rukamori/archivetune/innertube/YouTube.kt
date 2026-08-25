@@ -301,16 +301,36 @@ object YouTube {
     private fun resolvePlayerPoToken(
         client: YouTubeClient,
         explicitPoToken: String?,
+        videoId: String,
         authState: PlaybackAuthState,
     ): String? =
         authState.resolvePlayerPoToken(
             client = client,
             explicitPoToken = explicitPoToken,
+            videoId = videoId,
         )
 
     fun hasLoginCookie(): Boolean = authState.hasLoginCookie
 
     fun hasPlaybackLoginContext(): Boolean = authState.hasPlaybackLoginContext
+
+    internal fun resolveGvsPoToken(
+        videoId: String? = null,
+        authState: PlaybackAuthState = currentPlaybackAuthState(),
+    ): String? = authState.resolveGvsPoToken(videoId = videoId)
+
+    internal fun appendGvsPoToken(
+        url: String,
+        client: YouTubeClient? = null,
+        videoId: String? = null,
+        authState: PlaybackAuthState = currentPlaybackAuthState(),
+    ): String {
+        val token = authState.resolveGvsPoToken(client = client, videoId = videoId) ?: return url
+        if (url.contains("pot=")) return url
+
+        val separator = if (url.contains("?")) "&" else "?"
+        return "$url${separator}pot=$token"
+    }
 
     suspend fun searchSuggestions(query: String): Result<SearchSuggestions> =
         runCatching {
@@ -2170,7 +2190,7 @@ object YouTube {
         authState: PlaybackAuthState = currentPlaybackAuthState(),
     ): Result<PlayerResponse> =
         runCatching {
-            val resolvedPoToken = resolvePlayerPoToken(client, poToken, authState)
+            val resolvedPoToken = resolvePlayerPoToken(client, poToken, videoId, authState)
             innerTube
                 .player(
                     client = client,
