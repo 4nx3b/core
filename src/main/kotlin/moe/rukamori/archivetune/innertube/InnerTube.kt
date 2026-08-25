@@ -120,6 +120,18 @@ class InnerTube {
             httpClient = createClient()
         }
 
+    /**
+     * Rotating-proxy selector installed by [moe.rukamori.archivetune.innertube.YouTube.enableIpRotation].
+     * Non-null means every InnerTube request goes out through the next live proxy in the pool.
+     * Setting it rebuilds the HTTP client, because OkHttp's proxy selector is fixed at build time.
+     */
+    internal var proxySelector: RotatingProxySelector? = null
+        set(value) {
+            field = value
+            httpClient.close()
+            httpClient = createClient()
+        }
+
     var useLoginForBrowse: Boolean = false
 
     fun currentAuthState(): PlaybackAuthState = authState
@@ -159,6 +171,8 @@ class InnerTube {
                     dns(this@InnerTube.dns)
                     val sel = this@InnerTube.proxySelector
                     if (sel != null) {
+                        // The selector picks (and rotates) the proxy per request, so it must take
+                        // precedence over the single static `proxy` below.
                         proxySelector(sel)
                     } else if (this@InnerTube.proxy == null) {
                         proxy(Proxy.NO_PROXY)
@@ -251,6 +265,8 @@ class InnerTube {
         factor: Double = 2.0,
         block: suspend () -> T,
     ): T {
+        // With rotation on, allow one attempt per live proxy (capped) so a transient failure
+        // moves to the next IP instead of giving up after the default attempt budget.
         val resolvedMaxAttempts = proxySelector?.activeCount()?.coerceIn(maxAttempts, 6) ?: maxAttempts
         var currentDelay = initialDelay
         var attempt = 0
@@ -437,16 +453,25 @@ class InnerTube {
         params: String? = null,
         continuation: String? = null,
         setLogin: Boolean = false,
+        useAccountContext: Boolean = true,
     ) = withRetry {
         httpClient.post("browse") {
-            ytClient(client, setLogin = setLogin || useLoginForBrowse)
+            // useAccountContext == false strips every trace of the session (cookie, dataSyncId and
+            // visitorData) so YouTube has nothing to derive a country from but the `gl` in `locale`.
+            // That is what makes the region spoofer actually move the personalised surfaces.
+            val shouldUseLogin = useAccountContext && (setLogin || useLoginForBrowse)
+            ytClient(
+                client = client,
+                setLogin = shouldUseLogin,
+                includeVisitorData = useAccountContext,
+            )
             setBody(
                 BrowseBody(
                     context =
                         client.toContext(
                             locale,
-                            visitorData,
-                            if (setLogin || useLoginForBrowse) dataSyncId else null,
+                            if (useAccountContext) visitorData else null,
+                            if (shouldUseLogin) dataSyncId else null,
                         ),
                     browseId = browseId,
                     params = params,
