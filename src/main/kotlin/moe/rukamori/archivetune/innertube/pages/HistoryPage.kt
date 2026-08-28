@@ -19,6 +19,25 @@ data class HistoryPage(
     data class HistorySection(
         val title: String,
         val songs: List<SongItem>,
+        /**
+         * Continuation token for fetching more songs in this section.
+         *
+         * YouTube Music paginates each history section (Today, Yesterday,
+         * This Week, etc.) separately via `musicShelfContinuation`. The
+         * first browse response includes a continuation token at the end
+         * of each section's contents; subsequent pages are fetched by
+         * calling `innerTube.browse(continuation = token)`.
+         *
+         * Per user request (2026-08-28): "The local song history got its
+         * 200 limit removed but the remote history is still capped to
+         * 200. Fix it." Previously this token was discarded — the initial
+         * browse response contained up to ~200 songs per section (the
+         * upstream page size), and the app never followed the
+         * continuation. The token is now surfaced so the YouTube.kt
+         * `musicHistory()` sweep can follow every continuation until each
+         * section is exhausted (see commit on `YouTube.musicHistory`).
+         */
+        val continuation: String? = null,
     )
 
     companion object {
@@ -75,6 +94,11 @@ private fun MusicShelfRenderer.toHistorySection(): HistoryPage.HistorySection? {
             it.toSongItem(albumColumnIndex = 3)
         }
     if (songs.isEmpty()) return null
+    // Surface the continuation token so YouTube.kt's musicHistory()
+    // sweep can follow it for the full per-section history (the
+    // upstream page size caps each browse response at ~200 songs).
+    val continuation =
+        continuations?.getContinuation() ?: contents?.getContinuation()
     return HistoryPage.HistorySection(
         title =
             title
@@ -83,5 +107,6 @@ private fun MusicShelfRenderer.toHistorySection(): HistoryPage.HistorySection? {
                 ?.text
                 .orEmpty(),
         songs = songs,
+        continuation = continuation,
     )
 }
