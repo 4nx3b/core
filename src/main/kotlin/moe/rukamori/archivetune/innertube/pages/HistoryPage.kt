@@ -11,6 +11,7 @@ import moe.rukamori.archivetune.innertube.models.MusicResponsiveListItemRenderer
 import moe.rukamori.archivetune.innertube.models.MusicShelfRenderer
 import moe.rukamori.archivetune.innertube.models.SectionListRenderer
 import moe.rukamori.archivetune.innertube.models.SongItem
+import moe.rukamori.archivetune.innertube.models.getContinuation
 import moe.rukamori.archivetune.innertube.models.getItems
 
 data class HistoryPage(
