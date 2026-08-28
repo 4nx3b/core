@@ -12,6 +12,7 @@ import io.ktor.http.parseQueryString
 import kotlinx.coroutines.CancellationException
 import moe.rukamori.archivetune.innertube.models.YouTubeClient
 import moe.rukamori.archivetune.innertube.models.response.PlayerResponse
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.schabi.newpipe.extractor.NewPipe
@@ -137,44 +138,67 @@ object NewPipeUtils {
     }
 
     /**
-     * Resolves a playable stream URL for [format] without applying the n-param transform.
+     * Resolves a playable stream URL for [format].
      *
-     * The caller (YTPlayerUtils) applies the single n-transform for web clients via
-     * CipherDeobfuscator.transformNParamInUrl, mirroring Metrolist's structure. Returning a raw
-     * URL here avoids a double n-transform (the transform is never applied twice to one URL).
+     * The n-param (throttling) transform is applied here, and the GVS PO token for [client] is
+     * appended to the result, so callers can hand the URL straight to the player. [authState]
+     * defaults to the live session state; playback paths pass the state they resolved the player
+     * response with so the token matches that request.
      */
     suspend fun getStreamUrl(
         format: PlayerResponse.StreamingData.Format,
         videoId: String,
+        client: YouTubeClient? = null,
+        authState: PlaybackAuthState = YouTube.currentPlaybackAuthState(),
     ): Result<String> {
         try {
-            val resolvedUrl = run {
-                val directUrl = format.url
-                if (directUrl != null) {
-                    directUrl
-                } else {
-                    val cipherString =
-                        format.signatureCipher ?: format.cipher
-                            ?: throw ParsingException("Could not find format url")
+            val directUrl = format.url
+            if (directUrl != null) {
+                val resolvedDirectUrl =
+                    if (directUrl.toHttpUrlOrNull()?.queryParameter("n")?.isNotBlank() == true) {
+                        getUrlWithThrottlingParameterDeobfuscated(videoId, directUrl)
+                    } else {
+                        directUrl
+                    }
 
-                    val params = parseQueryString(cipherString)
-                    val obfuscatedSignature = params["s"] ?: throw ParsingException("Could not parse cipher signature")
-                    val signatureParam = params["sp"]?.takeIf { it.isNotBlank() } ?: "signature"
-                    val urlString = params["url"] ?: throw ParsingException("Could not parse cipher url")
-
-                    val urlBuilder = URLBuilder(urlString)
-
-                    val deobfuscatedSig =
-                        withJavaScriptPlayerCacheRecovery {
-                            YoutubeJavaScriptPlayerManager.deobfuscateSignature(videoId, obfuscatedSignature)
-                        }
-
-                    urlBuilder.parameters[signatureParam] = deobfuscatedSig
-                    urlBuilder.buildString()
-                }
+                return Result.success(
+                    YouTube.appendGvsPoToken(
+                        url = resolvedDirectUrl,
+                        client = client,
+                        videoId = videoId,
+                        authState = authState,
+                    ),
+                )
             }
 
-            return Result.success(resolvedUrl)
+            val cipherString =
+                format.signatureCipher ?: format.cipher
+                    ?: return Result.failure(ParsingException("Could not find format url"))
+
+            val params = parseQueryString(cipherString)
+            val obfuscatedSignature = params["s"] ?: throw ParsingException("Could not parse cipher signature")
+            val signatureParam = params["sp"]?.takeIf { it.isNotBlank() } ?: "signature"
+            val urlString = params["url"] ?: throw ParsingException("Could not parse cipher url")
+
+            val urlBuilder = URLBuilder(urlString)
+
+            val deobfuscatedSig =
+                withJavaScriptPlayerCacheRecovery {
+                    YoutubeJavaScriptPlayerManager.deobfuscateSignature(videoId, obfuscatedSignature)
+                }
+
+            urlBuilder.parameters[signatureParam] = deobfuscatedSig
+
+            val resolvedUrl = getUrlWithThrottlingParameterDeobfuscated(videoId, urlBuilder.buildString())
+
+            return Result.success(
+                YouTube.appendGvsPoToken(
+                    url = resolvedUrl,
+                    client = client,
+                    videoId = videoId,
+                    authState = authState,
+                ),
+            )
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (error: Exception) {
@@ -182,13 +206,47 @@ object NewPipeUtils {
         }
     }
 
-    private inline fun <T> withJavaScriptPlayerCacheRecovery(block: () -> T): T =
-        try {
-            block()
-        } catch (parsingFailure: ParsingException) {
-            throw parsingFailure
-        } catch (error: Exception) {
-            runCatching { YoutubeJavaScriptPlayerManager.clearAllCaches() }
-            throw error
+    private fun getUrlWithThrottlingParameterDeobfuscated(
+        videoId: String,
+        url: String,
+    ): String =
+        withJavaScriptPlayerCacheRecovery {
+            YoutubeJavaScriptPlayerManager.getUrlWithThrottlingParameterDeobfuscated(videoId, url)
         }
+
+    private inline fun <T> withJavaScriptPlayerCacheRecovery(block: () -> T): T {
+        try {
+            return block()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            if (!error.isStalePlayerJavaScriptFailure()) {
+                throw error
+            }
+
+            runCatching { YoutubeJavaScriptPlayerManager.clearAllCaches() }
+            try {
+                return block()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (retryFailure: Exception) {
+                retryFailure.addSuppressed(error)
+                throw retryFailure
+            }
+        }
+    }
+
+    private fun Throwable.isStalePlayerJavaScriptFailure(): Boolean {
+        var current: Throwable? = this
+        while (current != null) {
+            if (
+                current is ParsingException &&
+                current.message?.contains("deobfuscation function", ignoreCase = true) == true
+            ) {
+                return true
+            }
+            current = current.cause
+        }
+        return false
+    }
 }

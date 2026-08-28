@@ -87,6 +87,7 @@ import moe.rukamori.archivetune.innertube.pages.NextPage
 import moe.rukamori.archivetune.innertube.pages.NextResult
 import moe.rukamori.archivetune.innertube.pages.PlaylistContinuationPage
 import moe.rukamori.archivetune.innertube.pages.PlaylistPage
+import moe.rukamori.archivetune.innertube.pages.toSongItem
 import moe.rukamori.archivetune.innertube.pages.RelatedPage
 import moe.rukamori.archivetune.innertube.pages.SearchPage
 import moe.rukamori.archivetune.innertube.pages.SearchResult
@@ -301,16 +302,36 @@ object YouTube {
     private fun resolvePlayerPoToken(
         client: YouTubeClient,
         explicitPoToken: String?,
+        videoId: String,
         authState: PlaybackAuthState,
     ): String? =
         authState.resolvePlayerPoToken(
             client = client,
             explicitPoToken = explicitPoToken,
+            videoId = videoId,
         )
 
     fun hasLoginCookie(): Boolean = authState.hasLoginCookie
 
     fun hasPlaybackLoginContext(): Boolean = authState.hasPlaybackLoginContext
+
+    internal fun resolveGvsPoToken(
+        videoId: String? = null,
+        authState: PlaybackAuthState = currentPlaybackAuthState(),
+    ): String? = authState.resolveGvsPoToken(videoId = videoId)
+
+    internal fun appendGvsPoToken(
+        url: String,
+        client: YouTubeClient? = null,
+        videoId: String? = null,
+        authState: PlaybackAuthState = currentPlaybackAuthState(),
+    ): String {
+        val token = authState.resolveGvsPoToken(client = client, videoId = videoId) ?: return url
+        if (url.contains("pot=")) return url
+
+        val separator = if (url.contains("?")) "&" else "?"
+        return "$url${separator}pot=$token"
+    }
 
     suspend fun searchSuggestions(query: String): Result<SearchSuggestions> =
         runCatching {
@@ -1863,19 +1884,101 @@ object YouTube {
                         setLogin = true,
                     ).body<BrowseResponse>()
 
-            HistoryPage(
-                sections =
-                    response.contents
-                        ?.singleColumnBrowseResultsRenderer
-                        ?.tabs
-                        ?.firstOrNull()
-                        ?.tabRenderer
-                        ?.content
-                        ?.sectionListRenderer
-                        ?.contents
-                        ?.flatMap(HistoryPage::fromSectionListContent)
-                        .orEmpty(),
-            )
+            // Initial sections from the first browse response. Each
+            // section may carry a `continuation` token — the YouTube
+            // Music history endpoint paginates per-section (Today,
+            // Yesterday, This Week, etc.) and the first page caps each
+            // section at ~200 songs. Per user request (2026-08-28):
+            // "The local song history got its 200 limit removed but the
+            // remote history is still capped to 200. Fix it." We follow
+            // each section's continuation chain until it's exhausted,
+            // accumulating songs into the section's bucket. This mirrors
+            // the album-page continuation sweep already used by
+            // `YouTube.album` (commit history shows the same pattern).
+            val initialSections =
+                response.contents
+                    ?.singleColumnBrowseResultsRenderer
+                    ?.tabs
+                    ?.firstOrNull()
+                    ?.tabRenderer
+                    ?.content
+                    ?.sectionListRenderer
+                    ?.contents
+                    ?.flatMap(HistoryPage::fromSectionListContent)
+                    .orEmpty()
+
+            // Mutable buckets keyed by section title, accumulating
+            // songs from the initial response + every continuation
+            // response. Keyed by title rather than by index because
+            // continuation responses don't echo back the section's
+            // original index — only the title is stable across pages.
+            val buckets = LinkedHashMap<String, HistoryPage.HistorySection>()
+            initialSections.forEach { section ->
+                buckets[section.title] =
+                    HistoryPage.HistorySection(
+                        title = section.title,
+                        songs = section.songs,
+                        continuation = section.continuation,
+                    )
+            }
+
+            // Pending continuations to follow. Each entry holds the
+            // section title (so results land in the right bucket) and
+            // the continuation token.
+            val pending = ArrayDeque<Pair<String, String>>()
+            buckets.values.forEach { section ->
+                section.continuation?.let { token ->
+                    pending.addLast(section.title to token)
+                }
+            }
+
+            val seenContinuations = mutableSetOf<String>()
+            var requestCount = 0
+            val maxRequests = 200 // Guard against runaway loops; each section rarely exceeds ~5 pages.
+
+            while (pending.isNotEmpty() && requestCount < maxRequests) {
+                val (sectionTitle, token) = pending.removeFirst()
+                if (token in seenContinuations) continue
+                seenContinuations.add(token)
+                requestCount++
+
+                val continuationResponse =
+                    innerTube
+                        .browse(
+                            client = WEB_REMIX,
+                            continuation = token,
+                        ).body<BrowseResponse>()
+
+                // The continuation response carries the next batch of
+                // songs in `continuationContents.musicShelfContinuation`,
+                // which has the same shape as a regular MusicShelfRenderer
+                // (contents + continuations). We re-use the same
+                // `toHistorySection` extension to extract songs + the
+                // next continuation token.
+                val musicShelfContinuation =
+                    continuationResponse.continuationContents?.musicShelfContinuation
+                if (musicShelfContinuation != null) {
+                    val moreSongs =
+                        musicShelfContinuation.contents.orEmpty().getItems().mapNotNull {
+                            it.toSongItem(albumColumnIndex = 3)
+                        }
+                    val nextToken =
+                        musicShelfContinuation.continuations?.getContinuation()
+                            ?: musicShelfContinuation.contents?.getContinuation()
+                    val existing = buckets[sectionTitle]
+                    if (existing != null) {
+                        buckets[sectionTitle] =
+                            HistoryPage.HistorySection(
+                                title = existing.title,
+                                songs = existing.songs + moreSongs,
+                                continuation = nextToken,
+                            )
+                    }
+                    nextToken?.let { pending.addLast(sectionTitle to it) }
+                }
+            }
+
+            HistoryPage(sections = buckets.values.toList())
         }
 
     suspend fun likeVideo(
@@ -2170,7 +2273,7 @@ object YouTube {
         authState: PlaybackAuthState = currentPlaybackAuthState(),
     ): Result<PlayerResponse> =
         runCatching {
-            val resolvedPoToken = resolvePlayerPoToken(client, poToken, authState)
+            val resolvedPoToken = resolvePlayerPoToken(client, poToken, videoId, authState)
             innerTube
                 .player(
                     client = client,
