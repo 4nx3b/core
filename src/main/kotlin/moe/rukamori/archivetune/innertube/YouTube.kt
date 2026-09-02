@@ -60,6 +60,7 @@ import moe.rukamori.archivetune.innertube.models.oddElements
 import moe.rukamori.archivetune.innertube.models.response.AccountMenuResponse
 import moe.rukamori.archivetune.innertube.models.response.AddItemYouTubePlaylistResponse
 import moe.rukamori.archivetune.innertube.models.response.BrowseResponse
+import moe.rukamori.archivetune.innertube.models.response.BrowseResponse.ContinuationContents.SectionListContinuation
 import moe.rukamori.archivetune.innertube.models.response.CreatePlaylistResponse
 import moe.rukamori.archivetune.innertube.models.response.EditPlaylistResponse
 import moe.rukamori.archivetune.innertube.models.response.GetQueueResponse
@@ -111,6 +112,14 @@ object YouTube {
     private const val BROWSE_ID_NEW_RELEASE_ALBUMS = "FEmusic_new_releases_albums"
     private const val BROWSE_ID_MOODS_AND_GENRES = "FEmusic_moods_and_genres"
     private const val PLAYLIST_EDIT_STATUS_SUCCEEDED = "STATUS_SUCCEEDED"
+
+    /**
+     * Safety guard for the new-releases continuation chain (see
+     * newReleaseAlbumsFromBrowsePage). Not a display cap: the chain ends on
+     * its own when YouTube stops returning tokens; this only stops a
+     * pathological loop.
+     */
+    private const val MAX_NEW_RELEASE_PAGES = 25
     private val playlistCoverResponseJson = Json { ignoreUnknownKeys = true }
 
     private val innerTube = InnerTube()
@@ -1249,30 +1258,92 @@ object YouTube {
         }
 
     private suspend fun newReleaseAlbumsFromBrowsePage(): List<AlbumItem> {
-        val response = innerTube.browse(WEB_REMIX, browseId = BROWSE_ID_NEW_RELEASE_ALBUMS).body<BrowseResponse>()
-        return response.newReleaseAlbumItems()
-    }
-
-    private fun BrowseResponse.newReleaseAlbumItems(): List<AlbumItem> {
-        val contents =
-            this.contents
+        // Follow the browse page's continuation chain until it is exhausted.
+        // The "New releases" browse endpoint serves only its first page
+        // (~200 albums) per request and paginates the rest behind
+        // continuation tokens; a single request silently stopped at that
+        // first page — the "cap of total 200" the user reported
+        // (2026-09-03: "Remove the cap of total 200 notifications from new
+        // releases section"). The page-count guard only protects against a
+        // pathological token loop; every real page yields 20+ albums.
+        val albums = mutableListOf<AlbumItem>()
+        val response =
+            innerTube
+                .browse(WEB_REMIX, browseId = BROWSE_ID_NEW_RELEASE_ALBUMS)
+                .body<BrowseResponse>()
+        val sectionList =
+            response.contents
                 ?.singleColumnBrowseResultsRenderer
                 ?.tabs
                 ?.firstOrNull()
                 ?.tabRenderer
                 ?.content
                 ?.sectionListRenderer
-                ?.contents
-                ?: this.contents
-                    ?.sectionListRenderer
-                    ?.contents
-                ?: continuationContents
-                    ?.sectionListContinuation
-                    ?.contents
-                ?: emptyList()
+                ?: response.contents?.sectionListRenderer
+        albums += sectionList?.contents.orEmpty().toNewReleaseAlbumItems()
+        var continuation = sectionList.nextNewReleaseContinuation()
+        var pages = 1
+        while (continuation != null && pages < MAX_NEW_RELEASE_PAGES) {
+            val continuationResponse =
+                innerTube
+                    .browse(WEB_REMIX, continuation = continuation)
+                    .body<BrowseResponse>()
+            val sectionListContinuation =
+                continuationResponse.continuationContents?.sectionListContinuation
+            if (sectionListContinuation != null) {
+                albums += sectionListContinuation.contents.toNewReleaseAlbumItems()
+                continuation = sectionListContinuation.nextNewReleaseContinuation()
+            } else {
+                val gridContinuation = continuationResponse.continuationContents?.gridContinuation
+                if (gridContinuation == null) break
+                albums +=
+                    gridContinuation.items
+                        .asSequence()
+                        .mapNotNull { it.musicTwoRowItemRenderer }
+                        .mapNotNull(NewReleaseAlbumPage::fromMusicTwoRowItemRenderer)
+                        .toList()
+                continuation = gridContinuation.continuations?.getContinuation()
+            }
+            pages++
+        }
+        return albums.distinctBy { it.id }
+    }
 
+    /**
+     * The next continuation token of a section-list page, wherever YouTube
+     * chose to hang it: the sectionListRenderer's own "continuations" array,
+     * a trailing continuationItemRenderer content, or (rarely) a grid
+     * section carrying its own continuation.
+     */
+    private fun SectionListRenderer?.nextNewReleaseContinuation(): String? {
+        this ?: return null
+        continuations?.getContinuation()?.let { return it }
+        contents
+            ?.lastOrNull()
+            ?.continuationItemRenderer
+            ?.continuationEndpoint
+            ?.continuationCommand
+            ?.token
+            ?.let { return it }
         return contents
-            .asSequence()
+            ?.lastOrNull()
+            ?.gridRenderer
+            ?.continuations
+            ?.getContinuation()
+    }
+
+    private fun SectionListContinuation.nextNewReleaseContinuation(): String? {
+        continuations?.getContinuation()?.let { return it }
+        return contents
+            ?.lastOrNull()
+            ?.continuationItemRenderer
+            ?.continuationEndpoint
+            ?.continuationCommand
+            ?.token
+    }
+
+    private fun List<SectionListRenderer.Content>.toNewReleaseAlbumItems(): List<AlbumItem> =
+        asSequence()
             .flatMap { content ->
                 sequence {
                     content.gridRenderer
@@ -1295,7 +1366,6 @@ object YouTube {
                 }
             }.mapNotNull(NewReleaseAlbumPage::fromMusicTwoRowItemRenderer)
             .toList()
-    }
 
     private fun Throwable.isBrowsePageUnavailable(): Boolean {
         val exception = this as? ClientRequestException ?: return false

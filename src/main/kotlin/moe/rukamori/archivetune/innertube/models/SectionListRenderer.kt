@@ -55,6 +55,12 @@ data class SectionListRenderer(
         val musicEditablePlaylistDetailHeaderRenderer: MusicEditablePlaylistDetailHeaderRenderer?,
         val gridRenderer: GridRenderer?,
         val itemSectionRenderer: ItemSectionRenderer?,
+        // YouTube often terminates a section list with a trailing
+        // continuationItemRenderer CONTENT (rather than a top-level
+        // "continuations" array) — the "New releases" browse page does
+        // exactly this. Optional field: unknown-JSON tolerance is
+        // unaffected for every other parser.
+        val continuationItemRenderer: ContinuationItemRenderer? = null,
     )
 
     @Serializable
