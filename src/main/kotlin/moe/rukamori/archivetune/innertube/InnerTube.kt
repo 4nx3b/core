@@ -903,6 +903,20 @@ class InnerTube {
             }
         }
 
+    /**
+     * Lightweight like-count lookup (user request 2026-09-03: TikTok-style
+     * like label in the player). Fetches ONLY the ReturnYouTubeDislike votes
+     * payload — a single cheap GET — instead of the full `next` + RYD pair
+     * that [getMediaInfo] performs, so it is safe to call on every song
+     * change in the player.
+     *
+     * @return the like count, or null when RYD has no data for this video.
+     */
+    suspend fun getLikeCount(videoId: String): Result<Int?> =
+        runCatching {
+            returnYouTubeDislike(videoId).body<ReturnYouTubeDislikeResponse>().likes
+        }
+
     suspend fun getMediaInfo(videoId: String): Result<MediaInfo> =
         runCatching {
             val response = next(client = YouTubeClient.WEB, videoId, null, null, null, null, null).body<NextResponse>()

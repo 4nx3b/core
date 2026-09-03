@@ -2831,6 +2831,12 @@ object YouTube {
             return innerTube.getMediaInfo(videoId)
         }
 
+    /**
+     * Lightweight like-count lookup for the player's TikTok-style like label
+     * (user request 2026-09-03). See [InnerTube.getLikeCount].
+     */
+    suspend fun getLikeCount(videoId: String): Result<Int?> = innerTube.getLikeCount(videoId)
+
     @JvmInline
     value class SearchFilter(
         val value: String,
