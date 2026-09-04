@@ -16,6 +16,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import moe.rukamori.archivetune.innertube.NewPipeUtils
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.StreamInfo
@@ -204,16 +205,16 @@ object NewPipeWatchPageExtractor {
         val resolved =
             ResolvedWatchStream(
                 url = url,
-                itag = best?.id ?: -1,
+                itag = best?.itag ?: -1,
                 mimeType = best?.format?.mimeType ?: "audio/webm",
-                codecs =
-                    best?.format?.mimeType
-                        ?.substringAfter("codecs=", "")
-                        ?.removeSurrounding("\"")
-                        ?.substringBefore("\"")
-                        ?.takeIf { it.isNotBlank() },
+                // AudioStream.getCodec() carries the real codec string
+                // ("opus", "mp4a.40.2", ...); the MediaFormat mimeType is only
+                // "audio/webm" / "audio/mp4" with no codecs= parameter to parse.
+                codecs = best?.codec,
                 bitrate = best?.averageBitrate ?: 0,
-                contentLength = best?.contentLength,
+                // AudioStream exposes no content length in this extractor
+                // version — null, and the player sizes it from the response.
+                contentLength = null,
                 title = info.name,
                 artist = info.uploaderName,
                 durationSeconds = info.duration.toLong(),
