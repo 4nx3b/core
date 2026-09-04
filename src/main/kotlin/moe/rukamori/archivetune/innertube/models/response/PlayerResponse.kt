@@ -70,9 +70,24 @@ data class PlayerResponse(
             val lastModified: Long?,
             val signatureCipher: String?,
             val cipher: String?,
+            // Echo-Music stream-resolution port (2026-09-05): the audio-track descriptor Echo's
+            // format selector uses to skip auto-dubbed tracks. Absent in YouTube Music's
+            // responses for undubbed content, so the default keeps older caches compatible.
+            val audioTrack: AudioTrack? = null,
         ) {
             val isAudio: Boolean
                 get() = width == null
+
+            /** Echo's [PlayerResponse.StreamingData.Format.isOriginal] — true when the track is not an auto-dubbed alternate. */
+            val isOriginal: Boolean
+                get() = audioTrack?.isAutoDubbed == null
+
+            @Serializable
+            data class AudioTrack(
+                val displayName: String? = null,
+                val id: String? = null,
+                val isAutoDubbed: Boolean? = null,
+            )
         }
     }
 

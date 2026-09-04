@@ -138,6 +138,45 @@ object NewPipeUtils {
     }
 
     /**
+     * Echo-Music's stream-URL harvest (Echo's `YouTube.getNewPipeStreamUrls` /
+     * `NewPipeExtractor.newPipePlayer`, https://github.com/EchoMusicApp/Echo-Music, GPL-3.0).
+     *
+     * One `StreamInfo.getInfo` extraction over the plain watch page returns `(itag, url)` pairs
+     * for EVERY stream NewPipe can see — audio, video and video-only — with the signature and
+     * n-param already deobfuscated by NewPipe's own player-code machinery. Echo substitutes these
+     * URLs into the InnerTube player response by itag (see [YouTube.newPipePlayer]) so playback
+     * does not depend on solving YouTube's cipher client-side.
+     *
+     * Blocking (NewPipe's extractor is synchronous), so callers must already be off the main
+     * thread — same contract as every other NewPipe entry point in this file.
+     */
+    fun newPipeStreamUrls(videoId: String): List<Pair<Int, String>> {
+        val streamsList = mutableListOf<org.schabi.newpipe.extractor.stream.Stream>()
+        try {
+            val streamInfo =
+                org.schabi.newpipe.extractor.stream.StreamInfo.getInfo(
+                    NewPipe.getService(0),
+                    "https://www.youtube.com/watch?v=$videoId",
+                )
+            streamsList.addAll(streamInfo.audioStreams + streamInfo.videoStreams + streamInfo.videoOnlyStreams)
+        } catch (e: Exception) {
+            // Echo's behaviour verbatim: the three extractors (BravePipe / NewPipe / PipePipe)
+            // share the exact same org.schabi.newpipe package so D8 merges them into one — only
+            // the first loaded JAR's classes exist at runtime. A failure here is caught and
+            // ignored; the caller falls back to the format's own URL / signatureCipher.
+            e.printStackTrace()
+        }
+
+        return try {
+            streamsList.mapNotNull { stream ->
+                (stream.itagItem?.id ?: return@mapNotNull null) to stream.content
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
      * Resolves a playable stream URL for [format].
      *
      * The n-param (throttling) transform is applied here, and the GVS PO token for [client] is
