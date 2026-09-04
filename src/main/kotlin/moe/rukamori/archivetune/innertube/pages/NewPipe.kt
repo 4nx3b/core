@@ -131,6 +131,14 @@ object NewPipeUtils {
         NewPipe.init(NewPipeDownloaderImpl(YouTube.streamProxy))
     }
 
+    /**
+     * Forces this object's initialization (which installs the shared proxy-aware
+     * OkHttp downloader). Callers that only need the NewPipe extractor machinery —
+     * e.g. [NewPipeWatchPageExtractor]'s watch-page stream resolution — call this
+     * instead of reaching into the private downloader.
+     */
+    fun ensureInitialized() = Unit
+
     suspend fun getSignatureTimestamp(videoId: String): Result<Int> = runCatching {
         withJavaScriptPlayerCacheRecovery {
             YoutubeJavaScriptPlayerManager.getSignatureTimestamp(videoId)
