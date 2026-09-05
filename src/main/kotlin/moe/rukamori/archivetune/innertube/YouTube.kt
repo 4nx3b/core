@@ -2075,6 +2075,15 @@ object YouTube {
                         .browse(
                             client = WEB_REMIX,
                             continuation = token,
+                            // 2026-09-05 fix: the continuation requests for a
+                            // LOGIN-REQUIRED endpoint went out ANONYMOUS (the
+                            // initial browse sets setLogin = true, these did
+                            // not), so YouTube returned an empty/invalid
+                            // continuation and the sweep silently stopped after
+                            // the first page — the "remote history is still
+                            // capped to 200" report. The per-section pages are
+                            // exactly as login-gated as the page they continue.
+                            setLogin = true,
                         ).body<BrowseResponse>()
 
                 // The continuation response carries the next batch of
