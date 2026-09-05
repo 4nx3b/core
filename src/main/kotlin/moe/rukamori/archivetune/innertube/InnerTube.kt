@@ -344,6 +344,7 @@ class InnerTube {
         poToken: String? = null,
         setLogin: Boolean = true,
         authState: PlaybackAuthState = currentAuthState(),
+        cpn: String? = null,
     ) = withRetry {
         val includeDataSyncId = setLogin && client.supportsCookieAuthentication && authState.hasPlaybackLoginContext
         try {
@@ -356,6 +357,7 @@ class InnerTube {
                 setLogin = setLogin,
                 authState = authState,
                 includeDataSyncId = includeDataSyncId,
+                cpn = cpn,
             )
         } catch (failure: Throwable) {
             if (!shouldRetryPlayerRequestWithoutDataSyncId(failure, includeDataSyncId)) throw failure
@@ -368,6 +370,7 @@ class InnerTube {
                 setLogin = setLogin,
                 authState = authState,
                 includeDataSyncId = false,
+                cpn = cpn,
             )
         }
     }
@@ -381,6 +384,7 @@ class InnerTube {
         setLogin: Boolean,
         authState: PlaybackAuthState,
         includeDataSyncId: Boolean,
+        cpn: String? = null,
     ) = httpClient.post(client.requestApiUrl("player")) {
         ytClient(client = client, setLogin = setLogin, authState = authState)
         setBody(
@@ -405,6 +409,7 @@ class InnerTube {
                         },
                 videoId = videoId,
                 playlistId = playlistId,
+                cpn = cpn,
                 playbackContext =
                     if (client.useSignatureTimestamp) {
                         PlayerBody.PlaybackContext(

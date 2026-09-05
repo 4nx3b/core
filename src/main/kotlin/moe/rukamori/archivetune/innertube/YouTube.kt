@@ -2399,6 +2399,7 @@ object YouTube {
         poToken: String? = null,
         setLogin: Boolean = true,
         authState: PlaybackAuthState = currentPlaybackAuthState(),
+        cpn: String? = null,
     ): Result<PlayerResponse> =
         runCatching {
             val resolvedPoToken = resolvePlayerPoToken(client, poToken, videoId, authState)
@@ -2411,6 +2412,7 @@ object YouTube {
                     poToken = resolvedPoToken,
                     setLogin = setLogin,
                     authState = authState,
+                    cpn = cpn,
                 ).body<PlayerResponse>()
         }
 

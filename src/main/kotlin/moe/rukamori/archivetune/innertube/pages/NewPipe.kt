@@ -23,7 +23,6 @@ import org.schabi.newpipe.extractor.exceptions.ParsingException
 import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
 import org.schabi.newpipe.extractor.services.youtube.YoutubeJavaScriptPlayerManager
 import java.io.IOException
-import org.schabi.newpipe.extractor.downloader.CancellableCall
 import java.net.Proxy
 import java.util.concurrent.TimeUnit
 
@@ -78,14 +77,15 @@ private class NewPipeDownloaderImpl(
             throw ReCaptchaException("reCaptcha Challenge requested", url)
         }
         val responseBodyStr = response.body.string()
-        val rawBytes = responseBodyStr.toByteArray()
         val latestUrl = response.request.url.toString()
+        // BravePipe's Response constructor takes 5 args (no rawBytes) — one of the
+        // two API adaptations made when BravePipeExtractor replaced
+        // MetrolistExtractor for the SimpMusic stream-resolution port.
         return Response(
             response.code,
             response.message,
             response.headers.toMultimap(),
             responseBodyStr,
-            rawBytes,
             latestUrl,
         )
     }
@@ -98,32 +98,11 @@ private class NewPipeDownloaderImpl(
         return processResponse(response, url)
     }
 
-    @Throws(IOException::class, ReCaptchaException::class)
-    override fun executeAsync(
-        request: Request,
-        callback: Downloader.AsyncCallback?,
-    ): CancellableCall {
-        val url = request.url()
-        val call = client.newCall(buildRequest(request))
-        val cancellable = CancellableCall(call)
-        call.enqueue(object : okhttp3.Callback {
-            override fun onFailure(call: okhttp3.Call, e: IOException) {
-                callback?.onError(e)
-                cancellable.setFinished()
-            }
-
-            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                try {
-                    val result = processResponse(response, url)
-                    callback?.onSuccess(result)
-                } catch (e: Exception) {
-                    callback?.onError(e)
-                }
-                cancellable.setFinished()
-            }
-        })
-        return cancellable
-    }
+    // NOTE: MetrolistExtractor's Downloader exposed executeAsync with an
+    // AsyncCallback/CancellableCall pair; BravePipe's Downloader (the
+    // org.schabi.newpipe.extractor artifact used since the SimpMusic port)
+    // has no such method — the extractor framework drives it synchronously
+    // through execute(), so the async override was dropped rather than ported.
 }
 
 object NewPipeUtils {
