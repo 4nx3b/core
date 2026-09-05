@@ -17,7 +17,7 @@
  * Adaptations: the InnerTube call goes through ArchiveTune's core YouTube
  * facade (which adds PO tokens and login context the same way the rest of
  * the app does), ktor's toKmpUri is replaced by okhttp's HttpUrl, Logger is
- * Timber, and the constructed Format carries ArchiveTune's extra `cipher`
+ * a SimpStreamLog sink, and the constructed Format carries ArchiveTune's extra `cipher`
  * field (null).
  */
 
@@ -33,7 +33,6 @@ import moe.rukamori.archivetune.innertube.models.response.PlayerResponse
 import moe.rukamori.archivetune.simpstream.extractor.ExtractSource
 import moe.rukamori.archivetune.simpstream.extractor.SimpMusicExtractor
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import timber.log.Timber
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
@@ -66,7 +65,7 @@ object SimpMusicPlayer {
             if (initialized) return
             extractor.init()
             initialized = true
-            Timber.tag(TAG).d("SimpMusic extractor initialized (PipePipe + BravePipe)")
+            SimpStreamLog.d(TAG, "SimpMusic extractor initialized (PipePipe + BravePipe)")
         }
     }
 
@@ -80,7 +79,7 @@ object SimpMusicPlayer {
         try {
             headCheckClient.head(url).status.value in 400..499
         } catch (e: Exception) {
-            Timber.tag(TAG).w(e, "is403Url HEAD check failed")
+            SimpStreamLog.w(TAG, "is403Url HEAD check failed", e)
             true
         }
 
@@ -125,9 +124,9 @@ object SimpMusicPlayer {
             val response = newPipePlayer(videoId, tempRes)
             if (response != null) {
                 decodedSigResponse = response
-                Timber.tag(TAG).d("player: NewPipe URLs merged for %s", videoId)
+                SimpStreamLog.d(TAG, "player: NewPipe URLs merged for $videoId")
             } else {
-                Timber.tag(TAG).w("player: no NewPipe URL found for %s", videoId)
+                SimpStreamLog.w(TAG, "player: no NewPipe URL found for $videoId")
             }
             if (decodedSigResponse == null) throw RuntimeException("No URL found")
             val firstThumb =
@@ -160,7 +159,7 @@ object SimpMusicPlayer {
         val listUrlSig = mutableListOf<String>()
         var decodedSigResponse: PlayerResponse?
         val sigResponse: PlayerResponse
-        Timber.tag(TAG).d("tempRes playabilityStatus: ${tempRes.playabilityStatus}")
+        SimpStreamLog.d(TAG, "tempRes playabilityStatus: ${tempRes.playabilityStatus}")
         if (tempRes.playabilityStatus.status != "OK") {
             return null
         } else {
@@ -244,10 +243,10 @@ object SimpMusicPlayer {
         )
         val randomUrl = listUrlSig.randomOrNull() ?: return null
         if (listUrlSig.isNotEmpty() && !is403Url(randomUrl)) {
-            Timber.tag(TAG).d("NewPipe found working URL (itag-merged) for %s", videoId)
+            SimpStreamLog.d(TAG, "NewPipe found working URL (itag-merged) for $videoId")
             return decodedSigResponse
         } else {
-            Timber.tag(TAG).w("NewPipe URL HEAD check failed for %s", videoId)
+            SimpStreamLog.w(TAG, "NewPipe URL HEAD check failed for $videoId")
             return null
         }
     }

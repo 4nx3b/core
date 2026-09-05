@@ -25,9 +25,11 @@ dependencies {
     implementation(libs.brave.extractor)
     implementation(libs.pipepipe.extractor)
     implementation(libs.quickjs.kt)
-    // Logging for the simpstream package (SimpMusic port). Timber works in a
-    // JVM module; the :app plants the DebugTree so the output is visible.
-    implementation(libs.timber)
+    // NOTE: no Timber here — Timber publishes only an Android AAR and Gradle
+    // rejects it for this pure-JVM module ("No matching variant ... elements
+    // 'aar' ... needed ... class files"). The simpstream package logs through
+    // SimpStreamLog (println by default); :app bridges it into Timber from
+    // YTPlayerUtils' initializer.
     // innertubex is a KMP library that only publishes android + common
     // variants on JitPack. Since :core is a JVM module, it can't resolve
     // the android variant. The dependency is declared in :app instead,

@@ -8,7 +8,7 @@
  * core/service/kotlinYtmusicScraper extractor/FaradayJsDecoder.kt —
  * GPL-3.0, © maxrave-dev. Logic kept byte-for-byte; only the package name,
  * the HttpClient engine (SimpMusic's ktorExt getEngine() -> OkHttp) and
- * the Logger (com.maxrave.logger -> Timber) changed.
+ * the Logger (com.maxrave.logger -> SimpStreamLog) changed.
  */
 
 package moe.rukamori.archivetune.simpstream.extractor
@@ -18,7 +18,7 @@ import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Executors
-import timber.log.Timber
+import moe.rukamori.archivetune.simpstream.SimpStreamLog
 import moe.rukamori.archivetune.simpstream.cipher.FaradayCipherEngine
 import moe.rukamori.archivetune.simpstream.cipher.InnerTubeLogLevel
 import moe.rukamori.archivetune.simpstream.cipher.InnerTubeLogger
@@ -104,7 +104,7 @@ internal class FaradayJsDecoder : YoutubeJavaScriptDecoder {
             throw ParsingException("Faraday: $missing of $wanted unsolved")
         }
         lastOutcome = "local:sig=${wantedSignatures.size},n=${wantedNParameters.size}"
-        Timber.tag(TAG).d("solved $wanted locally (sig=${wantedSignatures.size} n=${wantedNParameters.size})")
+        SimpStreamLog.d(TAG, "solved $wanted locally (sig=${wantedSignatures.size} n=${wantedNParameters.size})")
         return YoutubeApiDecoder.BatchDecodeResult(result.signatures, result.nParameters)
     }
 
@@ -115,10 +115,10 @@ internal class FaradayJsDecoder : YoutubeJavaScriptDecoder {
         InnerTubeLogger { event ->
             val message = event.message + event.details.entries.joinToString(prefix = " [", postfix = "]") { "${it.key}=${it.value}" }
             when (event.level) {
-                InnerTubeLogLevel.DEBUG -> Timber.tag(TAG).d(message)
-                InnerTubeLogLevel.INFO -> Timber.tag(TAG).i(message)
-                InnerTubeLogLevel.WARN -> Timber.tag(TAG).w(message)
-                InnerTubeLogLevel.ERROR -> Timber.tag(TAG).e(message)
+                InnerTubeLogLevel.DEBUG -> SimpStreamLog.d(TAG, message)
+                InnerTubeLogLevel.INFO -> SimpStreamLog.i(TAG, message)
+                InnerTubeLogLevel.WARN -> SimpStreamLog.w(TAG, message)
+                InnerTubeLogLevel.ERROR -> SimpStreamLog.e(TAG, message)
             }
         }
 }

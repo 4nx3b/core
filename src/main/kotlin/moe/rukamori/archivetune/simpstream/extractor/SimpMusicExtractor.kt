@@ -7,7 +7,7 @@
  * Ported from SimpMusic (https://github.com/maxrave-dev/SimpMusic),
  * core/service/kotlinYtmusicScraper extractor/Extractor.android.kt —
  * GPL-3.0, © maxrave-dev. Logic kept byte-for-byte; only the package name,
- * the Logger (com.maxrave.logger -> Timber) and the download/merge helpers
+ * the Logger (com.maxrave.logger -> SimpStreamLog) and the download/merge helpers
  * (FFmpeg download helpers dropped — ArchiveTune has its own download
  * pipeline) changed. This is a JVM-only module, so no expect/actual split.
  */
@@ -15,10 +15,10 @@
 package moe.rukamori.archivetune.simpstream.extractor
 
 import dev.maxrave.pipepipe.extractor.NewPipe
+import moe.rukamori.archivetune.simpstream.SimpStreamLog
 import dev.maxrave.pipepipe.extractor.ServiceList
 import dev.maxrave.pipepipe.extractor.services.youtube.YoutubeApiDecoder
 import dev.maxrave.pipepipe.extractor.stream.StreamInfo
-import timber.log.Timber
 import org.schabi.newpipe.extractor.NewPipe as BraveNewPipe
 import org.schabi.newpipe.extractor.ServiceList as BraveServiceList
 import org.schabi.newpipe.extractor.stream.StreamInfo as BraveStreamInfo
@@ -95,11 +95,11 @@ class SimpMusicExtractor {
                     (it.itagItem?.id ?: return@mapNotNull null) to it.content
                 }
             if (!pipeResult.hasRequiredItags()) {
-                Timber.tag(TAG).d("PipePipe[$tier] missing required itags for $videoId (got=${pipeResult.map { it.first }})")
+                SimpStreamLog.d(TAG, "PipePipe[$tier] missing required itags for $videoId (got=${pipeResult.map { it.first }})")
                 return null
             }
             if (!pipeResult.headCheckRandomStream()) {
-                Timber.tag(TAG).d("PipePipe[$tier] stream URL HEAD check failed (non 2xx) for $videoId")
+                SimpStreamLog.d(TAG, "PipePipe[$tier] stream URL HEAD check failed (non 2xx) for $videoId")
                 // A rejected URL is the one symptom of a stale player table: the signature is
                 // well-formed and still wrong, so nothing threw on the way here. Only the on-device
                 // table can go stale, so only that tier is worth invalidating.
@@ -108,10 +108,10 @@ class SimpMusicExtractor {
             }
             val label = if (tier == LOCAL_TIER) faradayDecoder.lastOutcomeLabel else REMOTE_TIER
             ExtractSource.record(videoId, "PipePipe · $label")
-            Timber.tag(TAG).d("extract source=PipePipe[$tier] itags=${pipeResult.map { it.first }} for $videoId")
+            SimpStreamLog.d(TAG, "extract source=PipePipe[$tier] itags=${pipeResult.map { it.first }} for $videoId")
             return pipeResult
         } catch (e: Throwable) {
-            Timber.tag(TAG).w(e, "PipePipe[$tier] extractor failed for $videoId: ${e.message}")
+            SimpStreamLog.w(TAG, "PipePipe[$tier] extractor failed for $videoId: ${e.message}", e)
             return null
         }
     }
@@ -126,9 +126,9 @@ class SimpMusicExtractor {
                     (it.itagItem?.id ?: return@mapNotNull null) to it.content
                 }.also {
                     ExtractSource.record(videoId, "BravePipe")
-                    Timber.tag(TAG).d("extract source=BravePipe itags=${it.map { pair -> pair.first }} for $videoId")
+                    SimpStreamLog.d(TAG, "extract source=BravePipe itags=${it.map { pair -> pair.first }} for $videoId")
                 }
         }.onFailure {
-            Timber.tag(TAG).w(it, "BravePipe extractor failed for $videoId: ${it.message}")
+            SimpStreamLog.w(TAG, "BravePipe extractor failed for $videoId: ${it.message}", it)
         }.getOrElse { emptyList() }
 }
