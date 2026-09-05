@@ -156,3 +156,22 @@ fun <T : YTItem> List<T>.filterVideo(enabled: Boolean = true) =
     } else {
         this
     }
+
+/**
+ * Drops SongItems that are podcast / audiobook / show EPISODES — content this app has no
+ * surface for (no podcast pages, no episode lists), which the permissive `isSong` heuristic
+ * (any watchEndpoint is a song) lets through as ordinary rows. They render identically to
+ * songs in search results but are not present in the app's world, which is what the
+ * 2026-09-05 report ("a lot of search results show up that are not even present in my app")
+ * was about. Null musicVideoType (local/library items) and every music type are kept; only
+ * the non-music families are dropped.
+ */
+fun <T : YTItem> List<T>.filterUnsupportedEpisodes() = filter { item ->
+    val musicVideoType =
+        (item as? SongItem)
+            ?.endpoint
+            ?.watchEndpointMusicSupportedConfigs
+            ?.watchEndpointMusicConfig
+            ?.musicVideoType
+    musicVideoType == null || !musicVideoType.startsWith("MUSIC_VIDEO_TYPE_PODCAST")
+}

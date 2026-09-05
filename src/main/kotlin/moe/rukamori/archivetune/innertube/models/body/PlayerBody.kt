@@ -17,6 +17,10 @@ data class PlayerBody(
     val playlistId: String?,
     val racyCheckOk: Boolean = true,
     val contentCheckOk: Boolean = true,
+    // Content playback nonce — the random 16-char token SimpMusic's YouTube.player()
+    // generates per request and threads through the response's playback-tracking URLs
+    // (see simpstream/SimpMusicPlayer.kt). Ported with the SimpMusic stream resolution.
+    val cpn: String? = null,
     val playbackContext: PlaybackContext? = null,
     val serviceIntegrityDimensions: ServiceIntegrityDimensions? = null,
 ) {

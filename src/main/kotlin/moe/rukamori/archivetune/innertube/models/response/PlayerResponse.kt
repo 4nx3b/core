@@ -48,6 +48,13 @@ data class PlayerResponse(
         val formats: List<Format>?,
         val adaptiveFormats: List<Format>,
         val expiresInSeconds: Int? = null,
+        // HLS manifest URL (itag 96) — set from the NewPipe extraction when the
+        // SimpMusic stream resolution merges extractor URLs into the response.
+        // Ported with the SimpMusic stream resolution (2026-09-05).
+        val hlsManifestUrl: String? = null,
+        // Server ABR streaming URL — SimpMusic's YouTube.player() reads the `fexp`
+        // query parameter off it and appends it to the playback-tracking URLs.
+        val serverAbrStreamingUrl: String? = null,
     ) {
         @Serializable
         data class Format(
@@ -70,9 +77,24 @@ data class PlayerResponse(
             val lastModified: Long?,
             val signatureCipher: String?,
             val cipher: String?,
+            // Echo-Music stream-resolution port (2026-09-05): the audio-track descriptor Echo's
+            // format selector uses to skip auto-dubbed tracks. Absent in YouTube Music's
+            // responses for undubbed content, so the default keeps older caches compatible.
+            val audioTrack: AudioTrack? = null,
         ) {
             val isAudio: Boolean
                 get() = width == null
+
+            /** Echo's [PlayerResponse.StreamingData.Format.isOriginal] — true when the track is not an auto-dubbed alternate. */
+            val isOriginal: Boolean
+                get() = audioTrack?.isAutoDubbed == null
+
+            @Serializable
+            data class AudioTrack(
+                val displayName: String? = null,
+                val id: String? = null,
+                val isAutoDubbed: Boolean? = null,
+            )
         }
     }
 
