@@ -79,7 +79,11 @@ import moe.rukamori.archivetune.innertube.pages.BrowseResult
 import moe.rukamori.archivetune.innertube.pages.ChartsPage
 import moe.rukamori.archivetune.innertube.pages.ExplorePage
 import moe.rukamori.archivetune.innertube.pages.HistoryPage
+import moe.rukamori.archivetune.innertube.models.EpisodeItem
+import moe.rukamori.archivetune.innertube.models.PODCAST_SHOW_BROWSE_PREFIX
+import moe.rukamori.archivetune.innertube.models.PodcastItem
 import moe.rukamori.archivetune.innertube.pages.HomePage
+import moe.rukamori.archivetune.innertube.pages.PodcastPage
 import moe.rukamori.archivetune.innertube.pages.LibraryContinuationPage
 import moe.rukamori.archivetune.innertube.pages.LibraryPage
 import moe.rukamori.archivetune.innertube.pages.MoodAndGenres
@@ -1213,6 +1217,33 @@ object YouTube {
                     ?.chips
                     ?.mapNotNull { HomePage.Chip.fromChipCloudChipRenderer(it) }
             HomePage(chips, sections, continuation)
+        }
+
+    suspend fun podcast(browseId: String): Result<PodcastPage> =
+        runCatching {
+            val normalizedBrowseId =
+                browseId.takeIf { it.startsWith(PODCAST_SHOW_BROWSE_PREFIX) }
+                    ?: "$PODCAST_SHOW_BROWSE_PREFIX$browseId"
+            val response =
+                innerTube
+                    .browse(
+                        client = WEB_REMIX,
+                        browseId = normalizedBrowseId,
+                        setLogin = true,
+                    ).body<BrowseResponse>()
+            PodcastPage.fromResponse(response, normalizedBrowseId)
+        }
+
+    suspend fun podcastContinuation(continuation: String): Result<PodcastPage.Continuation> =
+        runCatching {
+            val response =
+                innerTube
+                    .browse(
+                        client = WEB_REMIX,
+                        continuation = continuation,
+                        setLogin = true,
+                    ).body<BrowseResponse>()
+            PodcastPage.continuationFromResponse(response)
         }
 
     private suspend fun homeContinuation(continuation: String): Result<HomePage> =
@@ -2617,6 +2648,8 @@ object YouTube {
                         is PlaylistItem -> {
                             playlists.add(item)
                         }
+
+                        is EpisodeItem, is PodcastItem -> Unit
 
                         null -> {}
                     }

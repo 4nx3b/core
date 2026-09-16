@@ -61,6 +61,7 @@ data class SongItem(
     val setVideoId: String? = null,
     val viewCountText: String? = null,
     val viewCount: Long? = null,
+    val isPodcast: Boolean = false,
     override val thumbnailWidth: Int? = null,
     override val thumbnailHeight: Int? = null,
 ) : YTItem() {
@@ -106,6 +107,43 @@ data class PlaylistItem(
         get() = false
     override val shareLink: String
         get() = "https://music.youtube.com/playlist?list=$id"
+}
+
+data class PodcastItem(
+    val browseId: String,
+    val playlistId: String?,
+    override val title: String,
+    val author: Artist?,
+    override val thumbnail: String?,
+    override val thumbnailWidth: Int? = null,
+    override val thumbnailHeight: Int? = null,
+) : YTItem() {
+    override val id: String
+        get() = browseId
+    override val explicit: Boolean
+        get() = false
+    override val shareLink: String
+        get() = playlistId?.let { "https://music.youtube.com/playlist?list=$it" } ?: "https://music.youtube.com/browse/$browseId"
+}
+
+data class EpisodeItem(
+    override val id: String,
+    val browseId: String?,
+    override val title: String,
+    val podcast: Artist?,
+    val description: String?,
+    val dateText: String?,
+    val durationText: String?,
+    val duration: Int?,
+    override val thumbnail: String,
+    val endpoint: WatchEndpoint,
+    override val thumbnailWidth: Int? = null,
+    override val thumbnailHeight: Int? = null,
+) : YTItem() {
+    override val explicit: Boolean
+        get() = false
+    override val shareLink: String
+        get() = "https://music.youtube.com/watch?v=$id"
 }
 
 data class ArtistItem(
@@ -157,21 +195,3 @@ fun <T : YTItem> List<T>.filterVideo(enabled: Boolean = true) =
         this
     }
 
-/**
- * Drops SongItems that are podcast / audiobook / show EPISODES — content this app has no
- * surface for (no podcast pages, no episode lists), which the permissive `isSong` heuristic
- * (any watchEndpoint is a song) lets through as ordinary rows. They render identically to
- * songs in search results but are not present in the app's world, which is what the
- * 2026-09-05 report ("a lot of search results show up that are not even present in my app")
- * was about. Null musicVideoType (local/library items) and every music type are kept; only
- * the non-music families are dropped.
- */
-fun <T : YTItem> List<T>.filterUnsupportedEpisodes() = filter { item ->
-    val musicVideoType =
-        (item as? SongItem)
-            ?.endpoint
-            ?.watchEndpointMusicSupportedConfigs
-            ?.watchEndpointMusicConfig
-            ?.musicVideoType
-    musicVideoType == null || !musicVideoType.startsWith("MUSIC_VIDEO_TYPE_PODCAST")
-}
