@@ -16,6 +16,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import moe.rukamori.archivetune.innertube.NewPipeUtils
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.StreamInfo
@@ -204,7 +205,10 @@ object NewPipeWatchPageExtractor {
         val resolved =
             ResolvedWatchStream(
                 url = url,
-                itag = best?.id ?: -1,
+                // BravePipe's Stream#getId() returns the itag as a String
+                // ("140", "251", ...), so parse it instead of assigning the
+                // String straight into the Int field.
+                itag = best?.id?.toIntOrNull() ?: -1,
                 mimeType = best?.format?.mimeType ?: "audio/webm",
                 codecs =
                     best?.format?.mimeType
@@ -213,7 +217,9 @@ object NewPipeWatchPageExtractor {
                         ?.substringBefore("\"")
                         ?.takeIf { it.isNotBlank() },
                 bitrate = best?.averageBitrate ?: 0,
-                contentLength = best?.contentLength,
+                // BravePipe's AudioStream carries no content length (unlike
+                // InnerTube's Format) — leave it unknown rather than guessing.
+                contentLength = null,
                 title = info.name,
                 artist = info.uploaderName,
                 durationSeconds = info.duration.toLong(),

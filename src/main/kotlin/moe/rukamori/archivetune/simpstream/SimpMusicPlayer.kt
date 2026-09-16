@@ -265,10 +265,10 @@ object SimpMusicPlayer {
         )
         val randomUrl = listUrlSig.randomOrNull() ?: return null
         if (listUrlSig.isNotEmpty() && !is403Url(randomUrl)) {
-            SimpStreamLog.d(TAG, "NewPipe found working URL (itag-merged) for $videoId")
+            SimpStreamLog.d(TAG, "NewPipe found working URL (itag-merged)")
             return decodedSigResponse
         } else {
-            SimpStreamLog.w(TAG, "NewPipe URL HEAD check failed for $videoId")
+            SimpStreamLog.w(TAG, "NewPipe URL HEAD check failed")
             return null
         }
     }
