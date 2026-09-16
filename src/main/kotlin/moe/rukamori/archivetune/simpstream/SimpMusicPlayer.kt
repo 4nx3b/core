@@ -33,6 +33,9 @@ import moe.rukamori.archivetune.innertube.models.response.PlayerResponse
 import moe.rukamori.archivetune.simpstream.extractor.ExtractSource
 import moe.rukamori.archivetune.simpstream.extractor.SimpMusicExtractor
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import timber.log.Timber
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -109,25 +112,40 @@ object SimpMusicPlayer {
                     }.joinToString("")
 
             var decodedSigResponse: PlayerResponse? = null
-            val tempRes =
-                YouTube
-                    .player(
-                        videoId = videoId,
-                        playlistId = playlistId,
-                        client = WEB_REMIX,
-                        signatureTimestamp = currentSignatureTimestamp(),
-                        setLogin = true,
-                        authState = authState,
-                        cpn = cpn,
-                    ).getOrThrow()
-                    .let(::withFexpEnrichedTracking)
 
-            val response = newPipePlayer(videoId, tempRes)
-            if (response != null) {
-                decodedSigResponse = response
-                Timber.tag(TAG).d("player: NewPipe URLs merged for %s", videoId)
-            } else {
-                Timber.tag(TAG).w("player: no NewPipe URL found for %s", videoId)
+            // The InnerTube player request and the NewPipe watch-page
+            // extraction are independent until the merge, so they run
+            // concurrently — stream start latency becomes max() of the two
+            // instead of their sum (the extraction is synchronous and lands
+            // on the IO dispatcher).
+            coroutineScope {
+                val playerRequest =
+                    async {
+                        YouTube
+                            .player(
+                                videoId = videoId,
+                                playlistId = playlistId,
+                                client = WEB_REMIX,
+                                signatureTimestamp = currentSignatureTimestamp(),
+                                setLogin = true,
+                                authState = authState,
+                                cpn = cpn,
+                            ).getOrThrow()
+                            .let(::withFexpEnrichedTracking)
+                    }
+                val extractedStreams =
+                    async(Dispatchers.IO) {
+                        runCatching { extractor.newPipePlayer(videoId) }.getOrElse { emptyList() }
+                    }
+
+                val tempRes = playerRequest.await()
+                val response = newPipePlayer(tempRes, extractedStreams.await())
+                if (response != null) {
+                    decodedSigResponse = response
+                    Timber.tag(TAG).d("player: NewPipe URLs merged for %s", videoId)
+                } else {
+                    Timber.tag(TAG).w("player: no NewPipe URL found for %s", videoId)
+                }
             }
             if (decodedSigResponse == null) throw RuntimeException("No URL found")
             val firstThumb =
@@ -156,6 +174,11 @@ object SimpMusicPlayer {
     suspend fun newPipePlayer(
         videoId: String,
         tempRes: PlayerResponse,
+    ): PlayerResponse? = newPipePlayer(tempRes, extractor.newPipePlayer(videoId))
+
+    suspend fun newPipePlayer(
+        tempRes: PlayerResponse,
+        streamsList: List<Pair<Int, String>>,
     ): PlayerResponse? {
         val listUrlSig = mutableListOf<String>()
         var decodedSigResponse: PlayerResponse?
@@ -166,7 +189,6 @@ object SimpMusicPlayer {
         } else {
             sigResponse = tempRes
         }
-        val streamsList = extractor.newPipePlayer(videoId)
         if (streamsList.isEmpty()) return null
 
         decodedSigResponse =
