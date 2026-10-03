@@ -22,6 +22,7 @@ import kotlinx.coroutines.delay
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import moe.rukamori.archivetune.innertube.models.Context
+import moe.rukamori.archivetune.innertube.models.CreditsRow
 import moe.rukamori.archivetune.innertube.models.MediaInfo
 import moe.rukamori.archivetune.innertube.models.ReturnYouTubeDislikeResponse
 import moe.rukamori.archivetune.innertube.models.YouTubeClient
@@ -965,6 +966,41 @@ class InnerTube {
             val returnYouTubeDislikeResponse =
                 returnYouTubeDislike(videoId).body<ReturnYouTubeDislikeResponse>()
 
+            // YouTube's own song credits: the structured-description panel's
+            // music attribution cards each carry a "Song credits" dialog
+            // (overflow menu) with "Label: value" blocks separated by blank
+            // lines - Song / Artist / Album / Writers / Licensed to YouTube
+            // by / Produced by / Released, exactly the rows YouTube shows in
+            // its own track information sheet.
+            val credits =
+                response.engagementPanels
+                    ?.asSequence()
+                    ?.mapNotNull { it.engagementPanelSectionListRenderer }
+                    ?.firstOrNull { it.panelIdentifier == "engagement-panel-structured-description" }
+                    ?.content
+                    ?.structuredDescriptionContentRenderer
+                    ?.items
+                    ?.asSequence()
+                    ?.mapNotNull { it.horizontalCardListRenderer }
+                    ?.flatMap { it.cards.orEmpty() }
+                    ?.mapNotNull { it.videoAttributeViewModel }
+                    ?.mapNotNull { viewModel ->
+                        val dialogText =
+                            viewModel.overflowMenuOnTap
+                                ?.innertubeCommand
+                                ?.confirmDialogEndpoint
+                                ?.content
+                                ?.confirmDialogRenderer
+                                ?.dialogMessages
+                                .orEmpty()
+                                .flatMap { it.runs.orEmpty() }
+                                .joinToString("") { run -> run.text }
+                        dialogText.takeIf { it.isNotBlank() }
+                    }
+                    ?.flatMap { dialogText -> parseCreditRows(dialogText) }
+                    ?.toList()
+                    ?.takeIf { it.isNotEmpty() }
+
             return@runCatching MediaInfo(
                 videoId = videoId,
                 title =
@@ -1011,6 +1047,21 @@ class InnerTube {
                 viewCount = returnYouTubeDislikeResponse.viewCount,
                 like = returnYouTubeDislikeResponse.likes,
                 dislike = returnYouTubeDislikeResponse.dislikes,
+                credits = credits,
             )
         }
+
+    private fun parseCreditRows(dialogText: String): List<CreditsRow> =
+        dialogText
+            .split("\n\n")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .mapNotNull { block ->
+                val separator = block.indexOf(':')
+                if (separator <= 0) return@mapNotNull null
+                val label = block.substring(0, separator).trim()
+                val value = block.substring(separator + 1).trim()
+                if (label.isEmpty() || value.isEmpty()) return@mapNotNull null
+                CreditsRow(label = label, value = value)
+            }
 }

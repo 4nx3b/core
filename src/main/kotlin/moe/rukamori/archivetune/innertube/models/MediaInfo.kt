@@ -19,4 +19,15 @@ data class MediaInfo(
     val viewCount: Int? = null,
     val like: Int? = null,
     val dislike: Int? = null,
+    /**
+     * YouTube's own song credits (the "Song credits" dialog behind the
+     * watch page's music attribution card): Song / Artist / Album / Writers /
+     * Licensed to YouTube by / Produced by / ... as label-value rows.
+     */
+    val credits: List<CreditsRow>? = null,
+)
+
+data class CreditsRow(
+    val label: String,
+    val value: String,
 )
