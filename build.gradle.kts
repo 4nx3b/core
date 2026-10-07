@@ -14,7 +14,6 @@ dependencies {
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.json)
     implementation(libs.ktor.client.encoding)
-    implementation(libs.brotli)
     // SimpMusic stream-resolution port (2026-09-05): BravePipe replaces
     // MetrolistExtractor (same org.schabi.newpipe.extractor namespace, so
     // NewPipe.kt imports keep working — see NewPipe.kt for the two API
@@ -35,7 +34,6 @@ dependencies {
     // the android variant. The dependency is declared in :app instead,
     // where the Android variant resolves correctly.
     // api(libs.innertubex)
-    implementation(libs.re2j)
     testImplementation(libs.junit)
 }
 
