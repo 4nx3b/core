@@ -33,9 +33,12 @@ import moe.rukamori.archivetune.innertube.models.response.PlayerResponse
 import moe.rukamori.archivetune.simpstream.extractor.ExtractSource
 import moe.rukamori.archivetune.simpstream.extractor.SimpMusicExtractor
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
@@ -92,8 +95,9 @@ object SimpMusicPlayer {
         videoId: String,
         playlistId: String? = null,
         authState: PlaybackAuthState = YouTube.currentPlaybackAuthState(),
-    ): Result<Triple<String?, PlayerResponse, MediaType>> =
-        runCatching {
+    ): Result<Triple<String?, PlayerResponse, MediaType>> {
+        val result =
+            runCatching {
             ensureInitialized()
             // SimpMusic passes the account cookie to the extractors so they can
             // see age-gated / members-only videos; anonymous users pass "".
@@ -163,6 +167,13 @@ object SimpMusicPlayer {
                 thumbnails,
             )
         }
+        result.exceptionOrNull()?.let { error ->
+            if (error is CancellationException) {
+                currentCoroutineContext().ensureActive()
+            }
+        }
+        return result
+    }
 
     /**
      * SimpMusic's newPipePlayer: run the 3-tier extraction and splice its URLs into the
