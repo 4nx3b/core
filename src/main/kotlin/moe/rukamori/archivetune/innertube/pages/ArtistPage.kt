@@ -37,8 +37,9 @@ data class ArtistSection(
     val layout: ArtistSectionLayout,
 )
 
+private val SinglesSectionTitleRegex = Regex("""\b(singles?|eps?)\b""")
 private val SinglesSectionKeywords =
-    listOf("single", "sencil", "singol", "сингл", "シングル", "싱글", "单曲")
+    listOf("sencil", "singol", "сингл", "シングル", "싱글", "单曲")
 private val LibrarySectionKeywords =
     listOf("library", "biblioteca", "mediathek", "bibliothèque", "ライブラリ", "音乐库")
 
@@ -52,7 +53,12 @@ val ArtistSection.isInlineCarousel: Boolean
         if (playlistCarousel) return true
         val videoCarousel = items.all { it is SongItem && it.isMusicVideoItem }
         if (videoCarousel) return true
-        val singlesCarousel = items.any { it is AlbumItem } && SinglesSectionKeywords.any(normalizedTitle::contains)
+        val singlesCarousel =
+            items.any { it is AlbumItem } &&
+                (
+                    SinglesSectionTitleRegex.containsMatchIn(normalizedTitle) ||
+                        SinglesSectionKeywords.any(normalizedTitle::contains)
+                )
         if (singlesCarousel) return true
         return LibrarySectionKeywords.any(normalizedTitle::contains)
     }
