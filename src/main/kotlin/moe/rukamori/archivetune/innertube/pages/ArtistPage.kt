@@ -21,7 +21,9 @@ import moe.rukamori.archivetune.innertube.models.SectionListRenderer
 import moe.rukamori.archivetune.innertube.models.SongItem
 import moe.rukamori.archivetune.innertube.models.YTItem
 import moe.rukamori.archivetune.innertube.models.getItems
+import moe.rukamori.archivetune.innertube.models.isMusicVideoItem
 import moe.rukamori.archivetune.innertube.models.oddElements
+import java.util.Locale
 
 enum class ArtistSectionLayout {
     LIST,
@@ -34,6 +36,26 @@ data class ArtistSection(
     val moreEndpoint: BrowseEndpoint?,
     val layout: ArtistSectionLayout,
 )
+
+private val SinglesSectionKeywords =
+    listOf("single", "sencil", "singol", "сингл", "シングル", "싱글", "单曲")
+private val LibrarySectionKeywords =
+    listOf("library", "biblioteca", "mediathek", "bibliothèque", "ライブラリ", "音乐库")
+
+val ArtistSection.isInlineCarousel: Boolean
+    get() {
+        if (layout != ArtistSectionLayout.GRID || moreEndpoint == null) return false
+        if (items.isEmpty()) return false
+        val normalizedTitle = title.trim().lowercase(Locale.ROOT)
+        if (normalizedTitle.isEmpty()) return false
+        val playlistCarousel = items.all { it is PlaylistItem }
+        if (playlistCarousel) return true
+        val videoCarousel = items.all { it is SongItem && it.isMusicVideoItem }
+        if (videoCarousel) return true
+        val singlesCarousel = items.any { it is AlbumItem } && SinglesSectionKeywords.any(normalizedTitle::contains)
+        if (singlesCarousel) return true
+        return LibrarySectionKeywords.any(normalizedTitle::contains)
+    }
 
 data class ArtistPage(
     val artist: ArtistItem,

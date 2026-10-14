@@ -124,12 +124,6 @@ fun parseCookieString(cookie: String): Map<String, String> =
 
 fun hasYouTubeLoginCookie(cookie: String?): Boolean = youtubeLoginCookieValue(cookie) != null
 
-fun hasYtDlpYouTubeLoginCookies(cookie: String?): Boolean {
-    val cookieMap = cookie?.let(::parseCookieString).orEmpty()
-    return !cookieMap["LOGIN_INFO"].isNullOrBlank() &&
-        YOUTUBE_LOGIN_COOKIE_NAMES.any { cookieName -> !cookieMap[cookieName].isNullOrBlank() }
-}
-
 fun youtubeLoginCookieValue(cookie: String?): String? {
     val cookieMap = cookie?.let(::parseCookieString).orEmpty()
     return YOUTUBE_LOGIN_COOKIE_NAMES.firstNotNullOfOrNull { cookieName ->
@@ -187,7 +181,5 @@ private fun Char.isDurationSeparator(): Boolean =
 private fun Char.isIgnorableDurationChar(): Boolean =
     isWhitespace() ||
         Character.getType(this) == Character.FORMAT.toInt()
-
-fun isPrivateId(browseId: String): Boolean = browseId.contains("privately")
 
 private fun String?.normalizedContinuation(): String? = this?.takeUnless(String::isBlank)

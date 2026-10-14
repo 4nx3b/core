@@ -172,19 +172,21 @@ fun <T : YTItem> List<T>.filterExplicit(enabled: Boolean = true) =
         this
     }
 
+val SongItem.isMusicVideoItem: Boolean
+    get() {
+        val musicVideoType =
+            endpoint
+                ?.watchEndpointMusicSupportedConfigs
+                ?.watchEndpointMusicConfig
+                ?.musicVideoType
+        return musicVideoType == MUSIC_VIDEO_TYPE_OMV || musicVideoType == MUSIC_VIDEO_TYPE_UGC
+    }
+
 fun <T : YTItem> List<T>.filterVideo(enabled: Boolean = true) =
     if (enabled) {
-        filter {
-            when (it) {
-                is SongItem -> {
-                    val musicVideoType =
-                        it.endpoint
-                            ?.watchEndpointMusicSupportedConfigs
-                            ?.watchEndpointMusicConfig
-                            ?.musicVideoType
-                    val isMusicVideo = musicVideoType == MUSIC_VIDEO_TYPE_OMV || musicVideoType == MUSIC_VIDEO_TYPE_UGC
-                    !isMusicVideo
-                }
+        filter { item ->
+            when (item) {
+                is SongItem -> !item.isMusicVideoItem
 
                 else -> {
                     true
